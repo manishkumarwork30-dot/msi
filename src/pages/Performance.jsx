@@ -454,6 +454,7 @@ const Performance = () => {
                       <th>Status</th>
                       <th>Calls</th>
                       <th>Files</th>
+                      <th>Entry</th>
                       {stateColumns.map(st => <th key={st}>{st}</th>)}
                       <th style={{ width: '120px', textAlign: 'center' }}>Actions</th>
                     </tr>
@@ -524,6 +525,13 @@ const Performance = () => {
                                 />
                               ) : (
                                 entry.files
+                              )}
+                            </td>
+                            <td style={{ fontWeight: '600', color: 'var(--primary)' }}>
+                              {isEditing ? (
+                                stateColumns.reduce((sum, st) => sum + (editingValues[st.toLowerCase()] || 0), 0)
+                              ) : (
+                                stateColumns.reduce((sum, st) => sum + (entry[st.toLowerCase()] || 0), 0)
                               )}
                             </td>
                             {stateColumns.map(st => {

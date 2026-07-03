@@ -351,6 +351,7 @@ const DataEntry = () => {
                     <th>Leave?</th>
                     <th>Calls</th>
                     <th>Files</th>
+                    <th>Entry</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
                   </tr>
                 </thead>
@@ -389,6 +390,9 @@ const DataEntry = () => {
                             onChange={(e) => handleCellChange(agent.id, 'files', parseInt(e.target.value) || 0)}
                             disabled={row.is_leave}
                           />
+                        </td>
+                        <td style={{ fontWeight: '600', color: 'var(--primary)', textAlign: 'center', verticalAlign: 'middle' }}>
+                          {stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0)}
                         </td>
                         {stateColumns.map(st => {
                           const key = st.toLowerCase();
