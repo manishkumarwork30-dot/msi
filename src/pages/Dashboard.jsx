@@ -8,7 +8,6 @@ const Dashboard = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [data, setData] = useState([]);
   const [ivrCalls, setIvrCalls] = useState(0);
-  const [receivedCalls, setReceivedCalls] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -60,7 +59,7 @@ const Dashboard = () => {
 
       setData(formatted);
 
-      // 4. Fetch daily summary totals (IVR and Received Calls)
+      // 4. Fetch daily summary totals (IVR Calls only)
       const { data: summaryData, error: summaryErr } = await supabase
         .from('daily_summary')
         .select('*')
@@ -71,10 +70,8 @@ const Dashboard = () => {
 
       if (summaryData) {
         setIvrCalls(summaryData.ivr_calls || 0);
-        setReceivedCalls(summaryData.received_calls || 0);
       } else {
         setIvrCalls(0);
-        setReceivedCalls(0);
       }
 
     } catch (error) {
@@ -181,13 +178,12 @@ const Dashboard = () => {
 
       if (entriesErr) throw entriesErr;
 
-      // 2. Save overall summary (IVR and Received Calls)
+      // 2. Save overall summary (IVR Calls)
       const { error: summaryErr } = await supabase
         .from('daily_summary')
         .upsert({
           date: selectedDate,
-          ivr_calls: ivrCalls,
-          received_calls: receivedCalls
+          ivr_calls: ivrCalls
         });
 
       if (summaryErr) throw summaryErr;
@@ -236,7 +232,6 @@ const Dashboard = () => {
 
     text += `*GRAND TOTAL*: ${grand.calls} Calls | ${grand.files} Files | ${grand.entry} Entries\n`;
     text += `*IVR CALLS*: ${ivrCalls}\n`;
-    text += `*RECEIVED CALLS*: ${receivedCalls}\n`;
     text += `*TOTAL CALLS (WITH IVR)*: ${finalTotalCalls}`;
 
     navigator.clipboard.writeText(text);
@@ -465,7 +460,7 @@ const Dashboard = () => {
               {/* IVR Calls Row */}
               <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', fontWeight: 'bold' }}>
                 <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>IVR CALLS:</td>
-                <td colSpan={2 + stateColumns.length}>
+                <td colSpan={1 + stateColumns.length}>
                   {isEditMode ? (
                     <input 
                       type="number" 
@@ -481,29 +476,10 @@ const Dashboard = () => {
                 <td />
               </tr>
 
-              {/* Received Calls Row */}
-              <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', fontWeight: 'bold' }}>
-                <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>RECEIVED CALLS:</td>
-                <td colSpan={2 + stateColumns.length}>
-                  {isEditMode ? (
-                    <input 
-                      type="number" 
-                      value={receivedCalls} 
-                      onChange={(e) => setReceivedCalls(parseInt(e.target.value) || 0)} 
-                      className="input-field" 
-                      style={{ width: '100px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
-                    />
-                  ) : (
-                    receivedCalls
-                  )}
-                </td>
-                <td />
-              </tr>
-
               {/* Total Calls + IVR Row */}
               <tr style={{ backgroundColor: 'rgba(74, 222, 128, 0.18)', fontWeight: 'bold', borderTop: '1px solid var(--primary)' }}>
                 <td style={{ textAlign: 'right', color: 'var(--primary)' }}>TOTAL CALLS (WITH IVR):</td>
-                <td colSpan={2 + stateColumns.length} style={{ color: 'var(--primary)', fontSize: '1.1rem' }}>
+                <td colSpan={1 + stateColumns.length} style={{ color: 'var(--primary)', fontSize: '1.1rem' }}>
                   {finalTotalCalls}
                 </td>
                 <td />
