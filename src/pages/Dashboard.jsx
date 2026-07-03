@@ -7,6 +7,8 @@ const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'OTHERS'];
 const Dashboard = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [data, setData] = useState([]);
+  const [ivrCalls, setIvrCalls] = useState(0);
+  const [receivedCalls, setReceivedCalls] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -57,6 +59,24 @@ const Dashboard = () => {
       });
 
       setData(formatted);
+
+      // 4. Fetch daily summary totals (IVR and Received Calls)
+      const { data: summaryData, error: summaryErr } = await supabase
+        .from('daily_summary')
+        .select('*')
+        .eq('date', date)
+        .maybeSingle();
+
+      if (summaryErr) throw summaryErr;
+
+      if (summaryData) {
+        setIvrCalls(summaryData.ivr_calls || 0);
+        setReceivedCalls(summaryData.received_calls || 0);
+      } else {
+        setIvrCalls(0);
+        setReceivedCalls(0);
+      }
+
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -133,15 +153,15 @@ const Dashboard = () => {
   const handleSaveChanges = async () => {
     setSaving(true);
     try {
+      // 1. Save agent entries
       const entries = data.map(row => {
-        // Calculate files as the sum of all states
         const calculatedFiles = stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0);
         return {
           agent_id: row.agentId,
           date: selectedDate,
           calls: row.calls,
-          files: calculatedFiles, // saved calculated sum to files
-          entry: row.entry, // saved manual entry
+          files: calculatedFiles, // calculated sum
+          entry: row.entry, // manual entry
           is_leave: row.is_leave,
           pb: row.pb,
           hr: row.hr,
@@ -155,11 +175,23 @@ const Dashboard = () => {
         };
       });
 
-      const { error } = await supabase
+      const { error: entriesErr } = await supabase
         .from('daily_entries')
         .upsert(entries, { onConflict: 'agent_id,date' });
 
-      if (error) throw error;
+      if (entriesErr) throw entriesErr;
+
+      // 2. Save overall summary (IVR and Received Calls)
+      const { error: summaryErr } = await supabase
+        .from('daily_summary')
+        .upsert({
+          date: selectedDate,
+          ivr_calls: ivrCalls,
+          received_calls: receivedCalls
+        });
+
+      if (summaryErr) throw summaryErr;
+
       alert('All changes saved successfully!');
       setIsEditMode(false);
       fetchDashboardData(selectedDate);
@@ -200,11 +232,18 @@ const Dashboard = () => {
     });
 
     const grand = getGrandTotal();
-    text += `*GRAND TOTAL*: ${grand.calls} Calls | ${grand.files} Files | ${grand.entry} Entries`;
+    const finalTotalCalls = grand.calls + ivrCalls;
+
+    text += `*GRAND TOTAL*: ${grand.calls} Calls | ${grand.files} Files | ${grand.entry} Entries\n`;
+    text += `*IVR CALLS*: ${ivrCalls}\n`;
+    text += `*RECEIVED CALLS*: ${receivedCalls}\n`;
+    text += `*TOTAL CALLS (WITH IVR)*: ${finalTotalCalls}`;
 
     navigator.clipboard.writeText(text);
     alert('Report copied to clipboard! You can now paste and share it on WhatsApp/Teams.');
   };
+
+  const finalTotalCalls = grandTotals.calls + ivrCalls;
 
   return (
     <div>
@@ -301,10 +340,10 @@ const Dashboard = () => {
                 <th style={{ minWidth: '160px' }}>AGENT</th>
                 <th>CALLS</th>
                 <th>FILE</th>
-                <th>ENTRY</th>
                 {stateColumns.map(state => (
                   <th key={state}>{state}</th>
                 ))}
+                <th>ENTRY</th>
               </tr>
             </thead>
             <tbody>
@@ -362,20 +401,6 @@ const Dashboard = () => {
                           <td style={{ fontWeight: '600', color: 'var(--text-main)' }}>
                             {calculatedFiles}
                           </td>
-                          <td>
-                            {isEditMode ? (
-                              <input 
-                                type="number" 
-                                value={row.entry} 
-                                disabled={row.is_leave}
-                                onChange={(e) => handleCellEdit(row.agentId, 'entry', parseInt(e.target.value) || 0)} 
-                                className="input-field" 
-                                style={{ width: '65px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
-                              />
-                            ) : (
-                              row.entry
-                            )}
-                          </td>
                           {stateColumns.map(st => {
                             const val = row[st.toLowerCase()];
                             return (
@@ -395,6 +420,20 @@ const Dashboard = () => {
                               </td>
                             );
                           })}
+                          <td>
+                            {isEditMode ? (
+                              <input 
+                                type="number" 
+                                value={row.entry} 
+                                disabled={row.is_leave}
+                                onChange={(e) => handleCellEdit(row.agentId, 'entry', parseInt(e.target.value) || 0)} 
+                                className="input-field" 
+                                style={{ width: '65px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
+                              />
+                            ) : (
+                              row.entry
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
@@ -403,24 +442,73 @@ const Dashboard = () => {
                       <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{teamName} Total:</td>
                       <td>{totals.calls}</td>
                       <td>{totals.files}</td>
-                      <td style={{ color: 'var(--primary)' }}>{totals.entry}</td>
                       {stateColumns.map(st => (
                         <td key={st}>{totals[st.toLowerCase()] || 0}</td>
                       ))}
+                      <td style={{ color: 'var(--primary)' }}>{totals.entry}</td>
                     </tr>
                   </React.Fragment>
                 );
               })}
+
               {/* Grand Total Row */}
               <tr style={{ backgroundColor: 'rgba(74, 222, 128, 0.12)', fontWeight: 'bold', borderTop: '2px solid var(--primary)' }}>
                 <td style={{ textAlign: 'right', color: 'var(--primary)' }}>GRAND TOTAL:</td>
                 <td>{grandTotals.calls}</td>
                 <td>{grandTotals.files}</td>
-                <td style={{ color: 'var(--primary)' }}>{grandTotals.entry}</td>
                 {stateColumns.map(st => (
                   <td key={st}>{grandTotals[st.toLowerCase()] || 0}</td>
                 ))}
+                <td style={{ color: 'var(--primary)' }}>{grandTotals.entry}</td>
               </tr>
+
+              {/* IVR Calls Row */}
+              <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', fontWeight: 'bold' }}>
+                <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>IVR CALLS:</td>
+                <td colSpan={2 + stateColumns.length}>
+                  {isEditMode ? (
+                    <input 
+                      type="number" 
+                      value={ivrCalls} 
+                      onChange={(e) => setIvrCalls(parseInt(e.target.value) || 0)} 
+                      className="input-field" 
+                      style={{ width: '100px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
+                    />
+                  ) : (
+                    ivrCalls
+                  )}
+                </td>
+                <td />
+              </tr>
+
+              {/* Received Calls Row */}
+              <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', fontWeight: 'bold' }}>
+                <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>RECEIVED CALLS:</td>
+                <td colSpan={2 + stateColumns.length}>
+                  {isEditMode ? (
+                    <input 
+                      type="number" 
+                      value={receivedCalls} 
+                      onChange={(e) => setReceivedCalls(parseInt(e.target.value) || 0)} 
+                      className="input-field" 
+                      style={{ width: '100px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
+                    />
+                  ) : (
+                    receivedCalls
+                  )}
+                </td>
+                <td />
+              </tr>
+
+              {/* Total Calls + IVR Row */}
+              <tr style={{ backgroundColor: 'rgba(74, 222, 128, 0.18)', fontWeight: 'bold', borderTop: '1px solid var(--primary)' }}>
+                <td style={{ textAlign: 'right', color: 'var(--primary)' }}>TOTAL CALLS (WITH IVR):</td>
+                <td colSpan={2 + stateColumns.length} style={{ color: 'var(--primary)', fontSize: '1.1rem' }}>
+                  {finalTotalCalls}
+                </td>
+                <td />
+              </tr>
+
             </tbody>
           </table>
         )}

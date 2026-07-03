@@ -458,8 +458,8 @@ const Performance = () => {
                       <th>Status</th>
                       <th>Calls</th>
                       <th>Files</th>
-                      <th>Entry</th>
                       {stateColumns.map(st => <th key={st}>{st}</th>)}
+                      <th>Entry</th>
                       <th style={{ width: '120px', textAlign: 'center' }}>Actions</th>
                     </tr>
                   </thead>
@@ -520,20 +520,6 @@ const Performance = () => {
                             <td style={{ fontWeight: '600' }}>
                               {stateColumns.reduce((sum, st) => sum + (isEditing ? (editingValues[st.toLowerCase()] || 0) : (entry[st.toLowerCase()] || 0)), 0)}
                             </td>
-                            <td>
-                              {isEditing ? (
-                                <input 
-                                  type="number"
-                                  className="input-field"
-                                  value={editingValues.entry}
-                                  onChange={(e) => handleEditChange('entry', parseInt(e.target.value) || 0)}
-                                  disabled={editingValues.is_leave}
-                                  style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
-                                />
-                              ) : (
-                                entry.entry || 0
-                              )}
-                            </td>
                             {stateColumns.map(st => {
                               const key = st.toLowerCase();
                               return (
@@ -553,6 +539,20 @@ const Performance = () => {
                                 </td>
                               );
                             })}
+                            <td>
+                              {isEditing ? (
+                                <input 
+                                  type="number"
+                                  className="input-field"
+                                  value={editingValues.entry}
+                                  onChange={(e) => handleEditChange('entry', parseInt(e.target.value) || 0)}
+                                  disabled={editingValues.is_leave}
+                                  style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
+                                />
+                              ) : (
+                                entry.entry || 0
+                              )}
+                            </td>
                             <td style={{ textAlign: 'center' }}>
                               {isEditing ? (
                                 <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>

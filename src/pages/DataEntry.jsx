@@ -365,8 +365,8 @@ const DataEntry = () => {
                     <th>Leave?</th>
                     <th>Calls</th>
                     <th>File (Sum)</th>
-                    <th>Entry</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
+                    <th>Entry</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -399,16 +399,6 @@ const DataEntry = () => {
                         <td style={{ fontWeight: '600', color: 'var(--text-main)', textAlign: 'center', verticalAlign: 'middle' }}>
                           {calculatedFiles}
                         </td>
-                        <td>
-                          <input 
-                            type="number"
-                            className="input-field"
-                            style={{ width: '75px', padding: '0.25rem', textAlign: 'center' }}
-                            value={row.entry || 0}
-                            onChange={(e) => handleCellChange(agent.id, 'entry', parseInt(e.target.value) || 0)}
-                            disabled={row.is_leave}
-                          />
-                        </td>
                         {stateColumns.map(st => {
                           const key = st.toLowerCase();
                           return (
@@ -424,6 +414,16 @@ const DataEntry = () => {
                             </td>
                           );
                         })}
+                        <td>
+                          <input 
+                            type="number"
+                            className="input-field"
+                            style={{ width: '75px', padding: '0.25rem', textAlign: 'center' }}
+                            value={row.entry || 0}
+                            onChange={(e) => handleCellChange(agent.id, 'entry', parseInt(e.target.value) || 0)}
+                            disabled={row.is_leave}
+                          />
+                        </td>
                       </tr>
                     );
                   })}

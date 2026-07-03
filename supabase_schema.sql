@@ -35,5 +35,13 @@ CREATE TABLE public.daily_entries (
     UNIQUE(agent_id, date) -- An agent should have only one entry per date
 );
 
+-- Create Daily Summary Table
+CREATE TABLE public.daily_summary (
+    date DATE PRIMARY KEY,
+    ivr_calls INTEGER DEFAULT 0,
+    received_calls INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- Optional: Insert default teams based on your image
 INSERT INTO public.teams (name) VALUES ('UT'), ('ARR'), ('IND'), ('MS2');
