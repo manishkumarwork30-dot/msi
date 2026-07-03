@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { FileSpreadsheet, Save, Clipboard, RefreshCw } from 'lucide-react';
 
+const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'OTHERS'];
+
 const DataEntry = () => {
   const [agentsList, setAgentsList] = useState([]);
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
@@ -11,8 +13,7 @@ const DataEntry = () => {
   // Copy Paste Import State
   const [pastedData, setPastedData] = useState('');
   const [parseError, setParseError] = useState('');
-
-  const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'OTHERS'];
+  const [unmatchedAgents, setUnmatchedAgents] = useState([]);
 
   // Load agents
   const loadAgents = async () => {
@@ -29,7 +30,8 @@ const DataEntry = () => {
       (data || []).forEach(agent => {
         initialGrid[agent.id] = {
           calls: 0,
-          files: 30,
+          files: 0, // Calculated dynamically
+          entry: 0, // Manual entry
           is_leave: false,
           pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
         };
@@ -61,7 +63,8 @@ const DataEntry = () => {
         agentsList.forEach(agent => {
           resetGrid[agent.id] = {
             calls: 0,
-            files: 30,
+            files: 0,
+            entry: 0,
             is_leave: false,
             pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
           };
@@ -72,18 +75,19 @@ const DataEntry = () => {
           data.forEach(entry => {
             if (resetGrid[entry.agent_id]) {
               resetGrid[entry.agent_id] = {
-                calls: entry.calls,
-                files: entry.files,
-                is_leave: entry.is_leave,
-                pb: entry.pb,
-                hr: entry.hr,
-                jk: entry.jk,
-                hp: entry.hp,
-                mp: entry.mp,
-                rj: entry.rj,
-                up: entry.up,
-                br: entry.br,
-                others: entry.others
+                calls: entry.calls || 0,
+                files: entry.files || 0,
+                entry: entry.entry || 0,
+                is_leave: entry.is_leave || false,
+                pb: entry.pb || 0,
+                hr: entry.hr || 0,
+                jk: entry.jk || 0,
+                hp: entry.hp || 0,
+                mp: entry.mp || 0,
+                rj: entry.rj || 0,
+                up: entry.up || 0,
+                br: entry.br || 0,
+                others: entry.others || 0
               };
             }
           });
@@ -115,11 +119,10 @@ const DataEntry = () => {
       if (isChecked) {
         updatedRow.calls = 0;
         updatedRow.files = 0;
+        updatedRow.entry = 0;
         stateColumns.forEach(st => {
           updatedRow[st.toLowerCase()] = 0;
         });
-      } else {
-        updatedRow.files = 30;
       }
       return {
         ...prev,
@@ -129,8 +132,6 @@ const DataEntry = () => {
   };
 
   // Parse Copy-Pasted Excel Data
-  const [unmatchedAgents, setUnmatchedAgents] = useState([]);
-
   const handleParsePaste = () => {
     setParseError('');
     setUnmatchedAgents([]);
@@ -166,17 +167,24 @@ const DataEntry = () => {
 
         if (matchedAgent) {
           const calls = parseInt(cols[1]) || 0;
-          const files = parseInt(cols[2]) || 0;
           const is_leave = cols[12]?.toLowerCase() === 'true' || cols[12] === '1';
 
           const stateValues = {};
+          let stateSum = 0;
           stateColumns.forEach((st, sIdx) => {
-            stateValues[st.toLowerCase()] = parseInt(cols[3 + sIdx]) || 0;
+            const val = parseInt(cols[3 + sIdx]) || 0;
+            stateValues[st.toLowerCase()] = val;
+            stateSum += val;
           });
+
+          // Optional: If spreadsheet has an extra column for entry, we can try to read it.
+          // Otherwise, we initialize it to 0.
+          const entryVal = parseInt(cols[13]) || 0;
 
           updatedGrid[matchedAgent.id] = {
             calls,
-            files,
+            files: stateSum, // Calculate files as sum of states
+            entry: entryVal,
             is_leave,
             ...stateValues
           };
@@ -204,22 +212,28 @@ const DataEntry = () => {
   const handleSaveGrid = async () => {
     setSaving(true);
     try {
-      const entries = Object.keys(gridData).map(agentId => ({
-        agent_id: agentId,
-        date: entryDate,
-        calls: gridData[agentId].calls,
-        files: gridData[agentId].files,
-        is_leave: gridData[agentId].is_leave,
-        pb: gridData[agentId].pb,
-        hr: gridData[agentId].hr,
-        jk: gridData[agentId].jk,
-        hp: gridData[agentId].hp,
-        mp: gridData[agentId].mp,
-        rj: gridData[agentId].rj,
-        up: gridData[agentId].up,
-        br: gridData[agentId].br,
-        others: gridData[agentId].others
-      }));
+      const entries = Object.keys(gridData).map(agentId => {
+        const row = gridData[agentId];
+        // Calculate files as the sum of all states
+        const calculatedFiles = stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0);
+        return {
+          agent_id: agentId,
+          date: entryDate,
+          calls: row.calls,
+          files: calculatedFiles, // calculated sum
+          entry: row.entry, // manual entry
+          is_leave: row.is_leave,
+          pb: row.pb,
+          hr: row.hr,
+          jk: row.jk,
+          hp: row.hp,
+          mp: row.mp,
+          rj: row.rj,
+          up: row.up,
+          br: row.br,
+          others: row.others
+        };
+      });
 
       const { error } = await supabase
         .from('daily_entries')
@@ -266,7 +280,7 @@ const DataEntry = () => {
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
             Copy your rows from Excel or Google Sheets, paste them here, and click Parse. Values will be loaded below for review.
             <br />
-            <span style={{ color: 'var(--text-main)' }}>Columns: Agent | Calls | Files | PB | HR | JK | HP | MP | RJ | UP | BR | Others | Leave</span>
+            <span style={{ color: 'var(--text-main)' }}>Columns: Agent | Calls | Files | PB | HR | JK | HP | MP | RJ | UP | BR | Others | Leave | Entry</span>
           </p>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <textarea 
@@ -350,7 +364,7 @@ const DataEntry = () => {
                     <th style={{ minWidth: '150px' }}>Agent (Team)</th>
                     <th>Leave?</th>
                     <th>Calls</th>
-                    <th>Files</th>
+                    <th>File (Sum)</th>
                     <th>Entry</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
                   </tr>
@@ -358,6 +372,7 @@ const DataEntry = () => {
                 <tbody>
                   {agentsList.map(agent => {
                     const row = gridData[agent.id] || {};
+                    const calculatedFiles = stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0);
                     return (
                       <tr key={agent.id} style={row.is_leave ? { backgroundColor: 'rgba(239, 68, 68, 0.05)', opacity: 0.6 } : {}}>
                         <td style={{ fontWeight: '500' }}>
@@ -381,18 +396,18 @@ const DataEntry = () => {
                             disabled={row.is_leave}
                           />
                         </td>
+                        <td style={{ fontWeight: '600', color: 'var(--text-main)', textAlign: 'center', verticalAlign: 'middle' }}>
+                          {calculatedFiles}
+                        </td>
                         <td>
                           <input 
                             type="number"
                             className="input-field"
-                            style={{ width: '70px', padding: '0.25rem', textAlign: 'center' }}
-                            value={row.files || 0}
-                            onChange={(e) => handleCellChange(agent.id, 'files', parseInt(e.target.value) || 0)}
+                            style={{ width: '75px', padding: '0.25rem', textAlign: 'center' }}
+                            value={row.entry || 0}
+                            onChange={(e) => handleCellChange(agent.id, 'entry', parseInt(e.target.value) || 0)}
                             disabled={row.is_leave}
                           />
-                        </td>
-                        <td style={{ fontWeight: '600', color: 'var(--primary)', textAlign: 'center', verticalAlign: 'middle' }}>
-                          {stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0)}
                         </td>
                         {stateColumns.map(st => {
                           const key = st.toLowerCase();

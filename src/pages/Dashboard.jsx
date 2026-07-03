@@ -42,7 +42,7 @@ const Dashboard = () => {
           agent: agent.name || 'Unknown Agent',
           is_leave: entry.is_leave || false,
           calls: entry.calls || 0,
-          files: entry.files !== undefined ? entry.files : 30, // default files to 30
+          entry: entry.entry || 0, // Manual Entry column
           pb: entry.pb || 0,
           hr: entry.hr || 0,
           jk: entry.jk || 0,
@@ -78,24 +78,36 @@ const Dashboard = () => {
   const getTeamTotals = (teamData) => {
     return teamData.reduce((acc, curr) => {
       acc.calls += curr.calls;
-      acc.files += curr.files;
+      acc.entry += curr.entry;
+      
+      let teamStatesSum = 0;
       stateColumns.forEach(st => {
-        acc[st.toLowerCase()] += curr[st.toLowerCase()] || 0;
+        const val = curr[st.toLowerCase()] || 0;
+        acc[st.toLowerCase()] += val;
+        teamStatesSum += val;
       });
+      acc.files += teamStatesSum; // FILE is calculated as the sum of states
+      
       return acc;
-    }, { calls: 0, files: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
+    }, { calls: 0, files: 0, entry: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
   };
 
   // Grand Total calculation
   const getGrandTotal = () => {
     return data.reduce((acc, curr) => {
       acc.calls += curr.calls;
-      acc.files += curr.files;
+      acc.entry += curr.entry;
+      
+      let statesSum = 0;
       stateColumns.forEach(st => {
-        acc[st.toLowerCase()] += curr[st.toLowerCase()] || 0;
+        const val = curr[st.toLowerCase()] || 0;
+        acc[st.toLowerCase()] += val;
+        statesSum += val;
       });
+      acc.files += statesSum; // FILE is calculated as the sum of states
+      
       return acc;
-    }, { calls: 0, files: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
+    }, { calls: 0, files: 0, entry: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
   };
 
   const grandTotals = getGrandTotal();
@@ -108,10 +120,8 @@ const Dashboard = () => {
         if (field === 'is_leave' && value === true) {
           // Reset values if on leave
           updatedRow.calls = 0;
-          updatedRow.files = 0;
+          updatedRow.entry = 0;
           stateColumns.forEach(st => updatedRow[st.toLowerCase()] = 0);
-        } else if (field === 'is_leave' && value === false) {
-          updatedRow.files = 30; // default files
         }
         return updatedRow;
       }
@@ -123,22 +133,27 @@ const Dashboard = () => {
   const handleSaveChanges = async () => {
     setSaving(true);
     try {
-      const entries = data.map(row => ({
-        agent_id: row.agentId,
-        date: selectedDate,
-        calls: row.calls,
-        files: row.files,
-        is_leave: row.is_leave,
-        pb: row.pb,
-        hr: row.hr,
-        jk: row.jk,
-        hp: row.hp,
-        mp: row.mp,
-        rj: row.rj,
-        up: row.up,
-        br: row.br,
-        others: row.others
-      }));
+      const entries = data.map(row => {
+        // Calculate files as the sum of all states
+        const calculatedFiles = stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0);
+        return {
+          agent_id: row.agentId,
+          date: selectedDate,
+          calls: row.calls,
+          files: calculatedFiles, // saved calculated sum to files
+          entry: row.entry, // saved manual entry
+          is_leave: row.is_leave,
+          pb: row.pb,
+          hr: row.hr,
+          jk: row.jk,
+          hp: row.hp,
+          mp: row.mp,
+          rj: row.rj,
+          up: row.up,
+          br: row.br,
+          others: row.others
+        };
+      });
 
       const { error } = await supabase
         .from('daily_entries')
@@ -176,18 +191,16 @@ const Dashboard = () => {
             }
           });
           const statesStr = stateParts.length > 0 ? ` (${stateParts.join(', ')})` : '';
-          const totalEntries = stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0);
-          text += `- ${row.agent}: ${row.calls} C | ${row.files} F | Entries: ${totalEntries}${statesStr}\n`;
+          const calculatedFiles = stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0);
+          text += `- ${row.agent}: ${row.calls} C | ${calculatedFiles} F | Entry: ${row.entry}${statesStr}\n`;
         }
       });
       const totals = getTeamTotals(teamRows);
-      const teamEntriesTotal = stateColumns.reduce((sum, st) => sum + (totals[st.toLowerCase()] || 0), 0);
-      text += `*${teamName} TOTAL*: ${totals.calls} Calls | ${totals.files} Files | ${teamEntriesTotal} Entries\n\n`;
+      text += `*${teamName} TOTAL*: ${totals.calls} Calls | ${totals.files} Files | ${totals.entry} Entries\n\n`;
     });
 
     const grand = getGrandTotal();
-    const grandEntriesTotal = stateColumns.reduce((sum, st) => sum + (grand[st.toLowerCase()] || 0), 0);
-    text += `*GRAND TOTAL*: ${grand.calls} Calls | ${grand.files} Files | ${grandEntriesTotal} Entries`;
+    text += `*GRAND TOTAL*: ${grand.calls} Calls | ${grand.files} Files | ${grand.entry} Entries`;
 
     navigator.clipboard.writeText(text);
     alert('Report copied to clipboard! You can now paste and share it on WhatsApp/Teams.');
@@ -298,7 +311,6 @@ const Dashboard = () => {
               {Object.keys(groupedData).map(teamName => {
                 const teamRows = groupedData[teamName];
                 const totals = getTeamTotals(teamRows);
-                const teamEntriesTotal = stateColumns.reduce((sum, st) => sum + (totals[st.toLowerCase()] || 0), 0);
                 
                 // Colors corresponding to teams
                 const rowStyle = 
@@ -311,7 +323,7 @@ const Dashboard = () => {
                 return (
                   <React.Fragment key={teamName}>
                     {teamRows.map((row, idx) => {
-                      const rowEntriesTotal = stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0);
+                      const calculatedFiles = stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0);
                       return (
                         <tr key={idx} style={row.is_leave && !isEditMode ? { ...rowStyle, opacity: 0.5 } : rowStyle}>
                           <td style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '45px' }}>
@@ -347,22 +359,22 @@ const Dashboard = () => {
                               row.calls
                             )}
                           </td>
+                          <td style={{ fontWeight: '600', color: 'var(--text-main)' }}>
+                            {calculatedFiles}
+                          </td>
                           <td>
                             {isEditMode ? (
                               <input 
                                 type="number" 
-                                value={row.files} 
+                                value={row.entry} 
                                 disabled={row.is_leave}
-                                onChange={(e) => handleCellEdit(row.agentId, 'files', parseInt(e.target.value) || 0)} 
+                                onChange={(e) => handleCellEdit(row.agentId, 'entry', parseInt(e.target.value) || 0)} 
                                 className="input-field" 
                                 style={{ width: '65px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
                               />
                             ) : (
-                              row.files
+                              row.entry
                             )}
-                          </td>
-                          <td style={{ fontWeight: '600', color: 'var(--primary)' }}>
-                            {rowEntriesTotal}
                           </td>
                           {stateColumns.map(st => {
                             const val = row[st.toLowerCase()];
@@ -391,7 +403,7 @@ const Dashboard = () => {
                       <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{teamName} Total:</td>
                       <td>{totals.calls}</td>
                       <td>{totals.files}</td>
-                      <td style={{ color: 'var(--primary)' }}>{teamEntriesTotal}</td>
+                      <td style={{ color: 'var(--primary)' }}>{totals.entry}</td>
                       {stateColumns.map(st => (
                         <td key={st}>{totals[st.toLowerCase()] || 0}</td>
                       ))}
@@ -404,9 +416,7 @@ const Dashboard = () => {
                 <td style={{ textAlign: 'right', color: 'var(--primary)' }}>GRAND TOTAL:</td>
                 <td>{grandTotals.calls}</td>
                 <td>{grandTotals.files}</td>
-                <td style={{ color: 'var(--primary)' }}>
-                  {stateColumns.reduce((sum, st) => sum + (grandTotals[st.toLowerCase()] || 0), 0)}
-                </td>
+                <td style={{ color: 'var(--primary)' }}>{grandTotals.entry}</td>
                 {stateColumns.map(st => (
                   <td key={st}>{grandTotals[st.toLowerCase()] || 0}</td>
                 ))}

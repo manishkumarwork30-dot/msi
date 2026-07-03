@@ -20,6 +20,7 @@ CREATE TABLE public.daily_entries (
     date DATE NOT NULL,
     calls INTEGER DEFAULT 0,
     files INTEGER DEFAULT 0,
+    entry INTEGER DEFAULT 0,
     pb INTEGER DEFAULT 0,
     hr INTEGER DEFAULT 0,
     jk INTEGER DEFAULT 0,

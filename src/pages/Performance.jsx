@@ -38,6 +38,7 @@ const Performance = () => {
     setEditingValues({
       calls: entry.calls || 0,
       files: entry.files || 0,
+      entry: entry.entry || 0,
       is_leave: entry.is_leave || false,
       pb: entry.pb || 0,
       hr: entry.hr || 0,
@@ -61,11 +62,13 @@ const Performance = () => {
   const saveEditedRow = async (entryId) => {
     setSavingRow(true);
     try {
+      const calculatedFiles = stateColumns.reduce((sum, st) => sum + (editingValues[st.toLowerCase()] || 0), 0);
       const { error } = await supabase
         .from('daily_entries')
         .update({
           calls: editingValues.calls,
-          files: editingValues.files,
+          files: calculatedFiles, // calculated sum of states
+          entry: editingValues.entry, // manual entry value
           is_leave: editingValues.is_leave,
           pb: editingValues.pb,
           hr: editingValues.hr,
@@ -285,6 +288,7 @@ const Performance = () => {
       } else {
         acc.calls += curr.calls;
         acc.files += curr.files;
+        acc.entry += curr.entry || 0;
         stateColumns.forEach(st => {
           acc.stateEntries += curr[st.toLowerCase()] || 0;
         });
@@ -292,7 +296,7 @@ const Performance = () => {
       }
       return acc;
     },
-    { calls: 0, files: 0, stateEntries: 0, activeDays: 0, leaves: 0 }
+    { calls: 0, files: 0, entry: 0, stateEntries: 0, activeDays: 0, leaves: 0 }
   );
 
   return (
@@ -435,7 +439,7 @@ const Performance = () => {
                 </div>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Total Entries</span>
-                  <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{totals.stateEntries}</h2>
+                  <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{totals.entry}</h2>
                   <ArrowUpRight size={16} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: 'var(--primary)' }} />
                 </div>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
@@ -513,25 +517,21 @@ const Performance = () => {
                                 entry.calls
                               )}
                             </td>
+                            <td style={{ fontWeight: '600' }}>
+                              {stateColumns.reduce((sum, st) => sum + (isEditing ? (editingValues[st.toLowerCase()] || 0) : (entry[st.toLowerCase()] || 0)), 0)}
+                            </td>
                             <td>
                               {isEditing ? (
                                 <input 
                                   type="number"
                                   className="input-field"
-                                  value={editingValues.files}
-                                  onChange={(e) => handleEditChange('files', parseInt(e.target.value) || 0)}
+                                  value={editingValues.entry}
+                                  onChange={(e) => handleEditChange('entry', parseInt(e.target.value) || 0)}
                                   disabled={editingValues.is_leave}
                                   style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
                                 />
                               ) : (
-                                entry.files
-                              )}
-                            </td>
-                            <td style={{ fontWeight: '600', color: 'var(--primary)' }}>
-                              {isEditing ? (
-                                stateColumns.reduce((sum, st) => sum + (editingValues[st.toLowerCase()] || 0), 0)
-                              ) : (
-                                stateColumns.reduce((sum, st) => sum + (entry[st.toLowerCase()] || 0), 0)
+                                entry.entry || 0
                               )}
                             </td>
                             {stateColumns.map(st => {
