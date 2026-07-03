@@ -1,0 +1,38 @@
+-- Create Teams Table
+CREATE TABLE public.teams (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Create Agents Table
+CREATE TABLE public.agents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    team_id UUID REFERENCES public.teams(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Create Daily Entries Table
+CREATE TABLE public.daily_entries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID REFERENCES public.agents(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    calls INTEGER DEFAULT 0,
+    files INTEGER DEFAULT 0,
+    pb INTEGER DEFAULT 0,
+    hr INTEGER DEFAULT 0,
+    jk INTEGER DEFAULT 0,
+    hp INTEGER DEFAULT 0,
+    mp INTEGER DEFAULT 0,
+    rj INTEGER DEFAULT 0,
+    up INTEGER DEFAULT 0,
+    br INTEGER DEFAULT 0,
+    others INTEGER DEFAULT 0,
+    is_leave BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(agent_id, date) -- An agent should have only one entry per date
+);
+
+-- Optional: Insert default teams based on your image
+INSERT INTO public.teams (name) VALUES ('UT'), ('ARR'), ('IND'), ('MS2');
