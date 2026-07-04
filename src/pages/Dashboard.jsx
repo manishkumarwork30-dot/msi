@@ -369,12 +369,16 @@ const Dashboard = () => {
                                     onChange={(e) => handleCellEdit(row.agentId, 'is_leave', e.target.checked)} 
                                     style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                                   />
-                                  <span style={{ textDecoration: row.is_leave ? 'line-through' : 'none' }}>{row.agent}</span>
+                                  <span style={{ textDecoration: row.is_leave ? 'line-through' : 'none' }}>
+                                    {row.agent} <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'normal' }}>({row.team})</span>
+                                  </span>
                                   {row.is_leave && <span style={{ color: 'var(--error)', fontSize: '0.7rem', fontWeight: 'bold' }}>(LEAVE)</span>}
                                 </>
                               ) : (
                                 <>
-                                  <span>{row.agent}</span>
+                                  <span>
+                                    {row.agent} <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'normal' }}>({row.team})</span>
+                                  </span>
                                   {row.is_leave && <span style={{ color: 'var(--error)', fontSize: '0.75rem', fontWeight: 'bold' }}>(LEAVE)</span>}
                                 </>
                               )}
