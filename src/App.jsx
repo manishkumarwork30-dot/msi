@@ -127,10 +127,33 @@ const AppLayout = ({ children }) => {
         </div>
 
         <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
-          <Link to="/login" className="nav-link" style={{ color: 'var(--error)' }}>
+          <button 
+            onClick={async () => {
+              try {
+                await supabase.auth.signOut();
+              } catch (err) {
+                console.error('Logout error:', err);
+              }
+            }} 
+            className="nav-link" 
+            style={{ 
+              color: 'var(--error)', 
+              background: 'transparent', 
+              border: 'none', 
+              width: '100%', 
+              cursor: 'pointer', 
+              textAlign: 'left', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.75rem',
+              padding: '0.75rem 1rem',
+              fontFamily: 'inherit',
+              fontSize: 'inherit'
+            }}
+          >
             <LogOut size={20} />
             Logout
-          </Link>
+          </button>
         </div>
       </aside>
       <main className="main-content" style={{ flex: 1, minWidth: 0 }}>
@@ -140,16 +163,63 @@ const AppLayout = ({ children }) => {
   );
 };
 
+// ProtectedRoute checks if a user session exists in Supabase
+const ProtectedRoute = ({ children }) => {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check current active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    }).catch(() => {
+      setLoading(false);
+    });
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh', 
+        backgroundColor: 'var(--bg-dark)', 
+        color: 'var(--text-main)' 
+      }}>
+        Loading...
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
+
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
-        <Route path="/todays-agents" element={<AppLayout><TodaysAgents /></AppLayout>} />
-        <Route path="/data-entry" element={<AppLayout><DataEntry /></AppLayout>} />
-        <Route path="/performance" element={<AppLayout><Performance /></AppLayout>} />
-        <Route path="/admin" element={<AppLayout><AdminSettings /></AppLayout>} />
+        <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
+        <Route path="/todays-agents" element={<ProtectedRoute><AppLayout><TodaysAgents /></AppLayout></ProtectedRoute>} />
+        <Route path="/data-entry" element={<ProtectedRoute><AppLayout><DataEntry /></AppLayout></ProtectedRoute>} />
+        <Route path="/performance" element={<ProtectedRoute><AppLayout><Performance /></AppLayout></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>

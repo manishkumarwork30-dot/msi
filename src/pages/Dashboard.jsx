@@ -354,136 +354,136 @@ const Dashboard = () => {
                   teamName === 'MS2' ? { backgroundColor: 'rgba(56, 189, 248, 0.05)' } :
                   { backgroundColor: 'rgba(255, 255, 255, 0.01)' };
 
-                return (
-                  <React.Fragment key={teamName}>
-                    {teamRows.map((row, idx) => {
-                      const calculatedFiles = stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0);
-                      return (
-                        <tr key={idx} style={row.is_leave && !isEditMode ? { ...rowStyle, opacity: 0.5 } : rowStyle}>
-                          <td style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '45px' }}>
-                            {isEditMode ? (
-                              <>
-                                <input 
-                                  type="checkbox" 
-                                  checked={row.is_leave} 
-                                  onChange={(e) => handleCellEdit(row.agentId, 'is_leave', e.target.checked)} 
-                                  style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                                />
-                                <span style={{ textDecoration: row.is_leave ? 'line-through' : 'none' }}>{row.agent}</span>
-                                {row.is_leave && <span style={{ color: 'var(--error)', fontSize: '0.7rem', fontWeight: 'bold' }}>(LEAVE)</span>}
-                              </>
-                            ) : (
-                              <>
-                                <span>{row.agent}</span>
-                                {row.is_leave && <span style={{ color: 'var(--error)', fontSize: '0.75rem', fontWeight: 'bold' }}>(LEAVE)</span>}
-                              </>
-                            )}
-                          </td>
-                          <td>
-                            {isEditMode ? (
-                              <input 
-                                type="number" 
-                                value={row.calls} 
-                                disabled={row.is_leave}
-                                onChange={(e) => handleCellEdit(row.agentId, 'calls', parseInt(e.target.value) || 0)} 
-                                className="input-field" 
-                                style={{ width: '65px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
-                              />
-                            ) : (
-                              row.calls
-                            )}
-                          </td>
-                          <td style={{ fontWeight: '600', color: 'var(--text-main)' }}>
-                            {calculatedFiles}
-                          </td>
-                          {stateColumns.map(st => {
-                            const val = row[st.toLowerCase()];
-                            return (
-                              <td key={st}>
-                                {isEditMode ? (
+                  return (
+                    <React.Fragment key={teamName}>
+                      {teamRows.map((row, idx) => {
+                        const calculatedFiles = stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0);
+                        return (
+                          <tr key={idx} className={`row-team-${teamName.toLowerCase()} ${row.is_leave && !isEditMode ? 'row-leave' : ''}`}>
+                            <td style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '45px' }}>
+                              {isEditMode ? (
+                                <>
                                   <input 
-                                    type="number" 
-                                    value={val} 
-                                    disabled={row.is_leave}
-                                    onChange={(e) => handleCellEdit(row.agentId, st.toLowerCase(), parseInt(e.target.value) || 0)} 
-                                    className="input-field" 
-                                    style={{ width: '50px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
+                                    type="checkbox" 
+                                    checked={row.is_leave} 
+                                    onChange={(e) => handleCellEdit(row.agentId, 'is_leave', e.target.checked)} 
+                                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                                   />
-                                ) : (
-                                  val || 0
-                                )}
-                              </td>
-                            );
-                          })}
-                          <td>
-                            {isEditMode ? (
-                              <input 
-                                type="number" 
-                                value={row.entry} 
-                                disabled={row.is_leave}
-                                onChange={(e) => handleCellEdit(row.agentId, 'entry', parseInt(e.target.value) || 0)} 
-                                className="input-field" 
-                                style={{ width: '65px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
-                              />
-                            ) : (
-                              row.entry
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {/* Team Total Row */}
-                    <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.04)', fontWeight: 'bold' }}>
-                      <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{teamName} Total:</td>
-                      <td>{totals.calls}</td>
-                      <td>{totals.files}</td>
-                      {stateColumns.map(st => (
-                        <td key={st}>{totals[st.toLowerCase()] || 0}</td>
-                      ))}
-                      <td style={{ color: 'var(--primary)' }}>{totals.entry}</td>
-                    </tr>
-                  </React.Fragment>
-                );
-              })}
-
-              {/* Grand Total Row */}
-              <tr style={{ backgroundColor: 'rgba(74, 222, 128, 0.12)', fontWeight: 'bold', borderTop: '2px solid var(--primary)' }}>
-                <td style={{ textAlign: 'right', color: 'var(--primary)' }}>GRAND TOTAL:</td>
-                <td>{grandTotals.calls}</td>
-                <td>{grandTotals.files}</td>
-                {stateColumns.map(st => (
-                  <td key={st}>{grandTotals[st.toLowerCase()] || 0}</td>
-                ))}
-                <td style={{ color: 'var(--primary)' }}>{grandTotals.entry}</td>
-              </tr>
-
-              {/* IVR Calls Row */}
-              <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', fontWeight: 'bold' }}>
-                <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>IVR CALLS:</td>
-                <td colSpan={1 + stateColumns.length}>
-                  {isEditMode ? (
-                    <input 
-                      type="number" 
-                      value={ivrCalls} 
-                      onChange={(e) => setIvrCalls(parseInt(e.target.value) || 0)} 
-                      className="input-field" 
-                      style={{ width: '100px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
-                    />
-                  ) : (
-                    ivrCalls
-                  )}
-                </td>
-                <td />
-              </tr>
-
-              {/* Total Calls + IVR Row */}
-              <tr style={{ backgroundColor: 'rgba(74, 222, 128, 0.18)', fontWeight: 'bold', borderTop: '1px solid var(--primary)' }}>
-                <td style={{ textAlign: 'right', color: 'var(--primary)' }}>TOTAL CALLS (WITH IVR):</td>
-                <td colSpan={1 + stateColumns.length} style={{ color: 'var(--primary)', fontSize: '1.1rem' }}>
-                  {finalTotalCalls}
-                </td>
-                <td />
-              </tr>
+                                  <span style={{ textDecoration: row.is_leave ? 'line-through' : 'none' }}>{row.agent}</span>
+                                  {row.is_leave && <span style={{ color: 'var(--error)', fontSize: '0.7rem', fontWeight: 'bold' }}>(LEAVE)</span>}
+                                </>
+                              ) : (
+                                <>
+                                  <span>{row.agent}</span>
+                                  {row.is_leave && <span style={{ color: 'var(--error)', fontSize: '0.75rem', fontWeight: 'bold' }}>(LEAVE)</span>}
+                                </>
+                              )}
+                            </td>
+                            <td>
+                              {isEditMode ? (
+                                <input 
+                                  type="number" 
+                                  value={row.calls} 
+                                  disabled={row.is_leave}
+                                  onChange={(e) => handleCellEdit(row.agentId, 'calls', parseInt(e.target.value) || 0)} 
+                                  className="input-field" 
+                                  style={{ width: '65px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
+                                />
+                              ) : (
+                                row.calls
+                              )}
+                            </td>
+                            <td style={{ fontWeight: '600', color: 'var(--text-main)' }}>
+                              {calculatedFiles}
+                            </td>
+                            {stateColumns.map(st => {
+                              const val = row[st.toLowerCase()];
+                              return (
+                                <td key={st}>
+                                  {isEditMode ? (
+                                    <input 
+                                      type="number" 
+                                      value={val} 
+                                      disabled={row.is_leave}
+                                      onChange={(e) => handleCellEdit(row.agentId, st.toLowerCase(), parseInt(e.target.value) || 0)} 
+                                      className="input-field" 
+                                      style={{ width: '50px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
+                                    />
+                                  ) : (
+                                    val || 0
+                                  )}
+                                </td>
+                              );
+                            })}
+                            <td>
+                              {isEditMode ? (
+                                <input 
+                                  type="number" 
+                                  value={row.entry} 
+                                  disabled={row.is_leave}
+                                  onChange={(e) => handleCellEdit(row.agentId, 'entry', parseInt(e.target.value) || 0)} 
+                                  className="input-field" 
+                                  style={{ width: '65px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
+                                />
+                              ) : (
+                                row.entry
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {/* Team Total Row */}
+                      <tr className="row-team-total">
+                        <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{teamName} Total:</td>
+                        <td>{totals.calls}</td>
+                        <td>{totals.files}</td>
+                        {stateColumns.map(st => (
+                          <td key={st}>{totals[st.toLowerCase()] || 0}</td>
+                        ))}
+                        <td style={{ color: 'var(--primary)' }}>{totals.entry}</td>
+                      </tr>
+                    </React.Fragment>
+                  );
+                })}
+  
+                {/* Grand Total Row */}
+                <tr className="row-grand-total">
+                  <td style={{ textAlign: 'right', color: 'var(--primary)' }}>GRAND TOTAL:</td>
+                  <td>{grandTotals.calls}</td>
+                  <td>{grandTotals.files}</td>
+                  {stateColumns.map(st => (
+                    <td key={st}>{grandTotals[st.toLowerCase()] || 0}</td>
+                  ))}
+                  <td style={{ color: 'var(--primary)' }}>{grandTotals.entry}</td>
+                </tr>
+  
+                {/* IVR Calls Row */}
+                <tr className="row-ivr-calls">
+                  <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>IVR CALLS:</td>
+                  <td colSpan={1 + stateColumns.length}>
+                    {isEditMode ? (
+                      <input 
+                        type="number" 
+                        value={ivrCalls} 
+                        onChange={(e) => setIvrCalls(parseInt(e.target.value) || 0)} 
+                        className="input-field" 
+                        style={{ width: '100px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
+                      />
+                    ) : (
+                      ivrCalls
+                    )}
+                  </td>
+                  <td />
+                </tr>
+  
+                {/* Total Calls + IVR Row */}
+                <tr className="row-total-calls">
+                  <td style={{ textAlign: 'right', color: 'var(--primary)' }}>TOTAL CALLS (WITH IVR):</td>
+                  <td colSpan={1 + stateColumns.length} style={{ color: 'var(--primary)', fontSize: '1.1rem' }}>
+                    {finalTotalCalls}
+                  </td>
+                  <td />
+                </tr>
 
             </tbody>
           </table>

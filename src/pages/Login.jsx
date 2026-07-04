@@ -1,18 +1,32 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 const Login = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // TODO: Add actual manual authentication logic here using Supabase
-    console.log('Login attempt with:', email, password);
-    // For practice, we just navigate to dashboard
-    navigate('/dashboard');
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Login error:', err);
+      setErrorMsg(err.message || 'Failed to sign in. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -26,6 +40,21 @@ const Login = () => {
           <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Sign in to access the dashboard</p>
         </div>
 
+        {errorMsg && (
+          <div style={{ 
+            backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+            border: '1px solid var(--error)', 
+            color: 'var(--error)', 
+            padding: '0.75rem', 
+            borderRadius: '6px', 
+            marginBottom: '1rem',
+            fontSize: '0.875rem',
+            textAlign: 'center'
+          }}>
+            {errorMsg}
+          </div>
+        )}
+
         <form onSubmit={handleLogin}>
           <div className="input-group">
             <label htmlFor="email">Email Address</label>
@@ -37,6 +66,7 @@ const Login = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required 
+              disabled={loading}
             />
           </div>
           
@@ -50,11 +80,17 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required 
+              disabled={loading}
             />
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem', padding: '0.75rem' }}>
-            Sign In
+          <button 
+            type="submit" 
+            className="btn btn-primary" 
+            style={{ width: '100%', marginTop: '1rem', padding: '0.75rem' }}
+            disabled={loading}
+          >
+            {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
       </div>
