@@ -131,6 +131,20 @@ const AuditAgent = () => {
     return isNaN(num) ? 0 : num;
   };
 
+  const formatDuration = (seconds) => {
+    if (isNaN(seconds) || seconds <= 0) return '0s';
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    if (hrs > 0) {
+      return `${hrs}h ${mins}m ${secs}s`;
+    }
+    if (mins > 0) {
+      return `${mins}m ${secs}s`;
+    }
+    return `${secs}s`;
+  };
+
   // Agent Performance Calculations
   const agentPerformance = useMemo(() => {
     if (rawData.length === 0) return [];
@@ -141,6 +155,15 @@ const AuditAgent = () => {
       const agent = (row.agent_name || '').toString().trim() || 'Unknown Agent';
       const durationIn = parseNum(row.duration_in);
       const durationOut = parseNum(row.duration_out);
+      const callStartTimeStr = row.call_start_time_in;
+
+      let callTime = null;
+      if (callStartTimeStr) {
+        const parsed = new Date(callStartTimeStr);
+        if (!isNaN(parsed.getTime())) {
+          callTime = parsed;
+        }
+      }
 
       if (!performanceMap[agent]) {
         performanceMap[agent] = {
@@ -148,7 +171,11 @@ const AuditAgent = () => {
           totalCalls: 0,
           incomingReceived: 0,
           outgoingCalls: 0,
-          longCalls: 0 // > 120s duration
+          longCalls: 0, // > 120s duration
+          totalDurationIn: 0,
+          totalDurationOut: 0,
+          firstCallTime: null,
+          lastCallTime: null
         };
       }
 
@@ -163,6 +190,17 @@ const AuditAgent = () => {
       }
       if (durationIn > 120 || durationOut > 120) {
         perf.longCalls += 1;
+      }
+      perf.totalDurationIn += durationIn;
+      perf.totalDurationOut += durationOut;
+
+      if (callTime) {
+        if (!perf.firstCallTime || callTime < perf.firstCallTime) {
+          perf.firstCallTime = callTime;
+        }
+        if (!perf.lastCallTime || callTime > perf.lastCallTime) {
+          perf.lastCallTime = callTime;
+        }
       }
     });
 
@@ -253,7 +291,11 @@ const AuditAgent = () => {
       'Total Calls Taken': p.totalCalls,
       'Incoming Calls Received (duration_in > 0)': p.incomingReceived,
       'Outgoing Calls (duration_out > 0)': p.outgoingCalls,
-      'Long Calls (> 120s)': p.longCalls
+      'Long Calls (> 120s)': p.longCalls,
+      'Total Incoming Duration': formatDuration(p.totalDurationIn),
+      'Total Outgoing Duration': formatDuration(p.totalDurationOut),
+      'First Call Start Time': p.firstCallTime ? p.firstCallTime.toLocaleString() : '-',
+      'Last Call Start Time': p.lastCallTime ? p.lastCallTime.toLocaleString() : '-'
     })));
 
     const wb = XLSX.utils.book_new();
@@ -398,6 +440,10 @@ const AuditAgent = () => {
                     <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Incoming Calls (Received)</th>
                     <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Calls</th>
                     <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Long Calls (&gt; 120s)</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Incoming Duration</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Duration</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>First Call Start</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Last Call Start</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -409,6 +455,14 @@ const AuditAgent = () => {
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{perf.outgoingCalls}</td>
                       <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: '#f59e0b', fontWeight: perf.longCalls > 0 ? '600' : 'normal' }}>
                         {perf.longCalls}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(perf.totalDurationIn)}</td>
+                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(perf.totalDurationOut)}</td>
+                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--secondary)', fontWeight: '500' }}>
+                        {perf.firstCallTime ? perf.firstCallTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--secondary)', fontWeight: '500' }}>
+                        {perf.lastCallTime ? perf.lastCallTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
                       </td>
                     </tr>
                   ))}
