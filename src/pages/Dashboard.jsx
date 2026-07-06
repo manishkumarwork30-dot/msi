@@ -152,23 +152,33 @@ const Dashboard = () => {
     try {
       // 1. Save agent entries
       const entries = data.map(row => {
-        const calculatedFiles = stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0);
+        const pb = parseInt(row.pb) || 0;
+        const hr = parseInt(row.hr) || 0;
+        const jk = parseInt(row.jk) || 0;
+        const hp = parseInt(row.hp) || 0;
+        const mp = parseInt(row.mp) || 0;
+        const rj = parseInt(row.rj) || 0;
+        const up = parseInt(row.up) || 0;
+        const br = parseInt(row.br) || 0;
+        const others = parseInt(row.others) || 0;
+        const calculatedFiles = pb + hr + jk + hp + mp + rj + up + br + others;
+
         return {
           agent_id: row.agentId,
           date: selectedDate,
-          calls: row.calls,
+          calls: parseInt(row.calls) || 0,
           files: calculatedFiles, // calculated sum
-          entry: row.entry, // manual entry
-          is_leave: row.is_leave,
-          pb: row.pb,
-          hr: row.hr,
-          jk: row.jk,
-          hp: row.hp,
-          mp: row.mp,
-          rj: row.rj,
-          up: row.up,
-          br: row.br,
-          others: row.others
+          entry: parseInt(row.entry) || 0, // manual entry
+          is_leave: !!row.is_leave,
+          pb,
+          hr,
+          jk,
+          hp,
+          mp,
+          rj,
+          up,
+          br,
+          others
         };
       });
 
@@ -183,7 +193,7 @@ const Dashboard = () => {
         .from('daily_summary')
         .upsert({
           date: selectedDate,
-          ivr_calls: ivrCalls
+          ivr_calls: parseInt(ivrCalls) || 0
         });
 
       if (summaryErr) throw summaryErr;
