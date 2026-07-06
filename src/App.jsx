@@ -6,7 +6,8 @@ import AdminSettings from './pages/AdminSettings';
 import Performance from './pages/Performance';
 import DataEntry from './pages/DataEntry';
 import TodaysAgents from './pages/TodaysAgents';
-import { LayoutDashboard, Settings, LogOut, BarChart2, FileEdit, Users, RefreshCw } from 'lucide-react';
+import AuditAgent from './pages/AuditAgent';
+import { LayoutDashboard, Settings, LogOut, BarChart2, FileEdit, Users, RefreshCw, ClipboardCheck } from 'lucide-react';
 import { supabase } from './lib/supabaseClient';
 import './index.css';
 
@@ -87,6 +88,10 @@ const AppLayout = ({ children }) => {
             <Link to="/performance" className="nav-link">
               <BarChart2 size={20} />
               Performance
+            </Link>
+            <Link to="/audit" className="nav-link">
+              <ClipboardCheck size={20} />
+              Audit Agent
             </Link>
             <Link to="/admin" className="nav-link">
               <Settings size={20} />
@@ -219,6 +224,7 @@ function App() {
         <Route path="/todays-agents" element={<ProtectedRoute><AppLayout><TodaysAgents /></AppLayout></ProtectedRoute>} />
         <Route path="/data-entry" element={<ProtectedRoute><AppLayout><DataEntry /></AppLayout></ProtectedRoute>} />
         <Route path="/performance" element={<ProtectedRoute><AppLayout><Performance /></AppLayout></ProtectedRoute>} />
+        <Route path="/audit" element={<ProtectedRoute><AppLayout><AuditAgent /></AppLayout></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
