@@ -33,6 +33,7 @@ const AuditAgent = () => {
   // Sorting state
   const [sortField, setSortField] = useState('');
   const [sortOrder, setSortOrder] = useState('asc'); // 'asc' | 'desc'
+  const [expandedAgents, setExpandedAgents] = useState({});
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -175,7 +176,8 @@ const AuditAgent = () => {
           totalDurationIn: 0,
           totalDurationOut: 0,
           firstCallTime: null,
-          lastCallTime: null
+          lastCallTime: null,
+          rawCalls: []
         };
       }
 
@@ -195,11 +197,42 @@ const AuditAgent = () => {
       perf.totalDurationOut += durationOut;
 
       if (callTime) {
+        perf.rawCalls.push({
+          time: callTime,
+          duration: Math.max(durationIn, durationOut),
+          Src: row.Src
+        });
+
         if (!perf.firstCallTime || callTime < perf.firstCallTime) {
           perf.firstCallTime = callTime;
         }
         if (!perf.lastCallTime || callTime > perf.lastCallTime) {
           perf.lastCallTime = callTime;
+        }
+      }
+    });
+
+    // Sort calls and compute gaps > 10 mins (600s)
+    Object.values(performanceMap).forEach(perf => {
+      perf.rawCalls.sort((a, b) => a.time - b.time);
+      perf.gaps = [];
+      for (let i = 1; i < perf.rawCalls.length; i++) {
+        const prev = perf.rawCalls[i - 1];
+        const curr = perf.rawCalls[i];
+        
+        // End time of previous call
+        const prevEnd = new Date(prev.time.getTime() + prev.duration * 1000);
+        // Gap to current call start
+        const gapSecs = (curr.time.getTime() - prevEnd.getTime()) / 1000;
+
+        if (gapSecs > 600) { // > 10 minutes
+          perf.gaps.push({
+            from: prevEnd,
+            to: curr.time,
+            duration: gapSecs,
+            prevSrc: prev.Src,
+            currSrc: curr.Src
+          });
         }
       }
     });
@@ -295,7 +328,9 @@ const AuditAgent = () => {
       'Total Incoming Duration': formatDuration(p.totalDurationIn),
       'Total Outgoing Duration': formatDuration(p.totalDurationOut),
       'First Call Start Time': p.firstCallTime ? p.firstCallTime.toLocaleString() : '-',
-      'Last Call Start Time': p.lastCallTime ? p.lastCallTime.toLocaleString() : '-'
+      'Last Call Start Time': p.lastCallTime ? p.lastCallTime.toLocaleString() : '-',
+      'Gaps Count (> 10m)': p.gaps.length,
+      'Gaps Details': p.gaps.map(g => `${formatDuration(g.duration)} gap (${g.from.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} to ${g.to.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})})`).join('; ') || 'No Gaps'
     })));
 
     const wb = XLSX.utils.book_new();
@@ -444,27 +479,70 @@ const AuditAgent = () => {
                     <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Duration</th>
                     <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>First Call Start</th>
                     <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Last Call Start</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Gaps (&gt; 10m)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {agentPerformance.map((perf, index) => (
-                    <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', fontWeight: 500 }}>{perf.agent_name}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{perf.totalCalls}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--primary)' }}>{perf.incomingReceived}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{perf.outgoingCalls}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: '#f59e0b', fontWeight: perf.longCalls > 0 ? '600' : 'normal' }}>
-                        {perf.longCalls}
-                      </td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(perf.totalDurationIn)}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(perf.totalDurationOut)}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--secondary)', fontWeight: '500' }}>
-                        {perf.firstCallTime ? perf.firstCallTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
-                      </td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--secondary)', fontWeight: '500' }}>
-                        {perf.lastCallTime ? perf.lastCallTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
-                      </td>
-                    </tr>
+                    <React.Fragment key={index}>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', backgroundColor: expandedAgents[perf.agent_name] ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', fontWeight: 500 }}>{perf.agent_name}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{perf.totalCalls}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--primary)' }}>{perf.incomingReceived}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{perf.outgoingCalls}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: '#f59e0b', fontWeight: perf.longCalls > 0 ? '600' : 'normal' }}>
+                          {perf.longCalls}
+                        </td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(perf.totalDurationIn)}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(perf.totalDurationOut)}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--secondary)', fontWeight: '500' }}>
+                          {perf.firstCallTime ? perf.firstCallTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+                        </td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--secondary)', fontWeight: '500' }}>
+                          {perf.lastCallTime ? perf.lastCallTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+                        </td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>
+                          {perf.gaps.length > 0 ? (
+                            <button 
+                              onClick={() => setExpandedAgents(prev => ({ ...prev, [perf.agent_name]: !prev[perf.agent_name] }))}
+                              className="btn btn-secondary" 
+                              style={{ 
+                                padding: '0.25rem 0.5rem', 
+                                color: '#ef4444', 
+                                borderColor: 'rgba(239, 68, 68, 0.3)', 
+                                backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                                fontSize: '0.75rem', 
+                                display: 'inline-flex', 
+                                gap: '0.25rem', 
+                                alignItems: 'center' 
+                              }}
+                            >
+                              {perf.gaps.length} Gaps
+                            </button>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>None</span>
+                          )}
+                        </td>
+                      </tr>
+                      {expandedAgents[perf.agent_name] && perf.gaps.length > 0 && (
+                        <tr style={{ backgroundColor: 'rgba(239, 68, 68, 0.02)' }}>
+                          <td colSpan={10} style={{ padding: '1rem 1.5rem' }}>
+                            <div style={{ borderLeft: '3px solid #ef4444', paddingLeft: '1rem' }}>
+                              <h4 style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 600, marginBottom: '0.5rem' }}>
+                                Gap Analysis Details ({perf.agent_name})
+                              </h4>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                {perf.gaps.map((gap, gIdx) => (
+                                  <div key={gIdx} style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                    • Gap of <strong style={{ color: 'var(--text-main)' }}>{formatDuration(gap.duration)}</strong> between call to <strong style={{ color: 'var(--text-main)' }}>{gap.prevSrc || 'Unknown'}</strong> (ended at {gap.from.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}) and call to <strong style={{ color: 'var(--text-main)' }}>{gap.currSrc || 'Unknown'}</strong> (started at {gap.to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
