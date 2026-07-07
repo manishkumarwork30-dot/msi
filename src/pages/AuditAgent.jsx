@@ -253,8 +253,9 @@ const AuditAgent = () => {
         const existing = existingMap[key];
 
         if (existing) {
+          const { id, created_at, ...rest } = existing;
           return {
-            ...existing,
+            ...rest,
             calls: item.calls
           };
         } else {
