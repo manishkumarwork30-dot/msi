@@ -191,6 +191,7 @@ const Performance = () => {
           
           let calls = entry.calls || 0;
           let files = entry.files || 0;
+          let manualEntry = entry.entry || 0;
           let stateSums = 0;
           const states = {};
           stateColumns.forEach(st => {
@@ -212,7 +213,7 @@ const Performance = () => {
           }
           summaryMap[teamName].totalCalls += calls;
           summaryMap[teamName].totalFiles += files;
-          summaryMap[teamName].totalEntries += stateSums;
+          summaryMap[teamName].totalEntries += manualEntry;
           stateColumns.forEach(st => {
             summaryMap[teamName][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -231,7 +232,7 @@ const Performance = () => {
           }
           dateSummaryMap[dateKey].calls += calls;
           dateSummaryMap[dateKey].files += files;
-          dateSummaryMap[dateKey].totalEntries += stateSums;
+          dateSummaryMap[dateKey].totalEntries += manualEntry;
           stateColumns.forEach(st => {
             dateSummaryMap[dateKey][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -250,7 +251,7 @@ const Performance = () => {
           }
           monthSummaryMap[monthKey].calls += calls;
           monthSummaryMap[monthKey].files += files;
-          monthSummaryMap[monthKey].totalEntries += stateSums;
+          monthSummaryMap[monthKey].totalEntries += manualEntry;
           stateColumns.forEach(st => {
             monthSummaryMap[monthKey][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -634,7 +635,7 @@ const Performance = () => {
                     <th>Total Calls</th>
                     <th>Total Files</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
-                    <th>Total State Entries</th>
+                    <th>Total Entries</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -670,7 +671,7 @@ const Performance = () => {
                     <th>Calls</th>
                     <th>Files</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
-                    <th>Total State Entries</th>
+                    <th>Total Entries</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -707,7 +708,7 @@ const Performance = () => {
                     <th>Calls</th>
                     <th>Files</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
-                    <th>Total State Entries</th>
+                    <th>Total Entries</th>
                   </tr>
                 </thead>
                 <tbody>
