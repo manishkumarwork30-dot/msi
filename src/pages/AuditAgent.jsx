@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, Download, Filter, Trash2, Search, ArrowUpDown, ChevronLeft, ChevronRight, FileSpreadsheet, ShieldAlert, Award } from 'lucide-react';
+import { Upload, Download, Filter, Trash2, Search, ArrowUpDown, ChevronLeft, ChevronRight, FileSpreadsheet, ShieldAlert, Award, Database, RefreshCw } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 const REQUIRED_COLUMNS = [
   'Src',
@@ -19,6 +20,11 @@ const AuditAgent = () => {
   const [dragActive, setDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Syncing states
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [unmatchedAgentsList, setUnmatchedAgentsList] = useState([]);
 
   // Filtering states
   const [selectedAgent, setSelectedAgent] = useState('All');
@@ -123,6 +129,167 @@ const AuditAgent = () => {
     setSelectedStatus('All');
     setSearchQuery('');
     setCurrentPage(1);
+    setSyncStatus(null);
+    setUnmatchedAgentsList([]);
+  };
+
+  // Date-wise Agent Calls Aggregation
+  const dateWiseAgentCalls = useMemo(() => {
+    if (rawData.length === 0) return [];
+    
+    const performanceMap = {};
+    rawData.forEach(row => {
+      const agentName = (row.agent_name || '').toString().trim() || 'Unknown Agent';
+      const callStartTimeStr = row.call_start_time_in;
+      if (!callStartTimeStr) return;
+      
+      const parsed = new Date(callStartTimeStr);
+      if (isNaN(parsed.getTime())) return;
+      
+      // Get local YYYY-MM-DD
+      const year = parsed.getFullYear();
+      const month = String(parsed.getMonth() + 1).padStart(2, '0');
+      const day = String(parsed.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      
+      const key = `${agentName}_${dateStr}`;
+      if (!performanceMap[key]) {
+        performanceMap[key] = {
+          agent_name: agentName,
+          date: dateStr,
+          calls: 0
+        };
+      }
+      performanceMap[key].calls += 1;
+    });
+    
+    return Object.values(performanceMap);
+  }, [rawData]);
+
+  // Database Sync Handler
+  const handleSyncToDatabase = async () => {
+    if (dateWiseAgentCalls.length === 0) return;
+    setSyncing(true);
+    setSyncStatus(null);
+    setUnmatchedAgentsList([]);
+
+    try {
+      // 1. Fetch all agents to map agent_name -> agent_id
+      const { data: dbAgents, error: agentsError } = await supabase
+        .from('agents')
+        .select('id, name');
+
+      if (agentsError) throw agentsError;
+
+      const agentMap = {};
+      dbAgents.forEach(a => {
+        const cleanName = a.name.trim().toLowerCase().replace(/\s*\(.*?\)\s*/g, '');
+        agentMap[cleanName] = a.id;
+      });
+
+      const matchedEntries = [];
+      const unmatched = new Set();
+      const uniqueAgentIds = new Set();
+      const uniqueDates = new Set();
+
+      dateWiseAgentCalls.forEach(item => {
+        const cleanExcelName = item.agent_name.trim().toLowerCase().replace(/\s*\(.*?\)\s*/g, '');
+        let agentId = agentMap[cleanExcelName];
+        
+        if (!agentId) {
+          const foundKey = Object.keys(agentMap).find(key => 
+            key.includes(cleanExcelName) || cleanExcelName.includes(key)
+          );
+          if (foundKey) {
+            agentId = agentMap[foundKey];
+          }
+        }
+
+        if (agentId) {
+          matchedEntries.push({
+            agent_id: agentId,
+            date: item.date,
+            calls: item.calls
+          });
+          uniqueAgentIds.add(agentId);
+          uniqueDates.add(item.date);
+        } else {
+          unmatched.add(item.agent_name);
+        }
+      });
+
+      if (unmatched.size > 0) {
+        setUnmatchedAgentsList(Array.from(unmatched));
+      }
+
+      if (matchedEntries.length === 0) {
+        setSyncStatus({
+          type: 'error',
+          message: 'No agent calls could be matched with agents in the database.'
+        });
+        setSyncing(false);
+        return;
+      }
+
+      const agentIdsArray = Array.from(uniqueAgentIds);
+      const datesArray = Array.from(uniqueDates);
+
+      // Fetch existing daily entries for these agents and dates to merge data and avoid overwriting other fields
+      const { data: existingEntries, error: entriesError } = await supabase
+        .from('daily_entries')
+        .select('*')
+        .in('agent_id', agentIdsArray)
+        .in('date', datesArray);
+
+      if (entriesError) throw entriesError;
+
+      const existingMap = {};
+      (existingEntries || []).forEach(entry => {
+        existingMap[`${entry.agent_id}_${entry.date}`] = entry;
+      });
+
+      const finalEntriesToUpsert = matchedEntries.map(item => {
+        const key = `${item.agent_id}_${item.date}`;
+        const existing = existingMap[key];
+
+        if (existing) {
+          return {
+            ...existing,
+            calls: item.calls
+          };
+        } else {
+          return {
+            agent_id: item.agent_id,
+            date: item.date,
+            calls: item.calls,
+            files: 0,
+            entry: 0,
+            is_leave: false,
+            pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
+          };
+        }
+      });
+
+      const { error: upsertError } = await supabase
+        .from('daily_entries')
+        .upsert(finalEntriesToUpsert, { onConflict: 'agent_id,date' });
+
+      if (upsertError) throw upsertError;
+
+      setSyncStatus({
+        type: unmatched.size > 0 ? 'warning' : 'success',
+        message: `Successfully sync'ed ${finalEntriesToUpsert.length} records. ${unmatched.size > 0 ? `${unmatched.size} agent names from Excel could not be matched.` : ''}`
+      });
+
+    } catch (err) {
+      console.error(err);
+      setSyncStatus({
+        type: 'error',
+        message: 'Failed to sync with database: ' + err.message
+      });
+    } finally {
+      setSyncing(false);
+    }
   };
 
   // Helper parser for durations
@@ -451,6 +618,76 @@ const AuditAgent = () => {
               </span>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Calls exceeding 2 minutes</span>
             </div>
+          </div>
+
+          {/* DATABASE SYNC SECTION */}
+          <div className="glass-panel" style={{ padding: '1.5rem', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                  <Database style={{ color: 'var(--primary)' }} size={20} />
+                  Database Sync Control
+                </h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0.25rem 0 0 0' }}>
+                  Save date-wise call log summaries directly to the database daily entries table.
+                </p>
+              </div>
+              <button 
+                onClick={handleSyncToDatabase} 
+                disabled={syncing}
+                className="btn btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
+                {syncing ? <RefreshCw size={16} className="spin" /> : <Database size={16} />}
+                {syncing ? 'Syncing to DB...' : 'Sync Calls to Database'}
+              </button>
+            </div>
+
+            {/* Sync Feedback Message */}
+            {syncStatus && (
+              <div style={{ 
+                padding: '1rem', 
+                borderRadius: '8px', 
+                border: `1px solid ${syncStatus.type === 'success' ? 'var(--primary)' : syncStatus.type === 'warning' ? '#f59e0b' : 'var(--error)'}`,
+                backgroundColor: syncStatus.type === 'success' ? 'rgba(74, 222, 128, 0.05)' : syncStatus.type === 'warning' ? 'rgba(245, 158, 11, 0.05)' : 'rgba(239, 68, 68, 0.05)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem'
+              }}>
+                {syncStatus.message}
+              </div>
+            )}
+
+            {/* Unmatched Agents Warnings */}
+            {unmatchedAgentsList.length > 0 && (
+              <div style={{ 
+                padding: '1rem', 
+                borderRadius: '8px', 
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                backgroundColor: 'rgba(245, 158, 11, 0.02)',
+                fontSize: '0.85rem'
+              }}>
+                <strong style={{ color: '#f59e0b', display: 'block', marginBottom: '0.5rem' }}>
+                  ⚠️ Unmatched Agent Names ({unmatchedAgentsList.length})
+                </strong>
+                <span style={{ color: 'var(--text-muted)' }}>
+                  The following agents in the Excel could not be found in the database. Their call counts were not saved:
+                </span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  {unmatchedAgentsList.map((name, idx) => (
+                    <span key={idx} style={{ 
+                      backgroundColor: 'rgba(255,255,255,0.05)', 
+                      padding: '0.2rem 0.5rem', 
+                      borderRadius: '4px',
+                      fontSize: '0.8rem',
+                      color: 'var(--text-main)',
+                      border: '1px solid var(--border-color)'
+                    }}>
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* SECTION 1: AGENT-WISE SUMMARY */}
