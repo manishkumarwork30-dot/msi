@@ -38,7 +38,6 @@ const Performance = () => {
     setEditingValues({
       calls: entry.calls || 0,
       files: entry.files || 0,
-      entry: entry.entry || 0,
       is_leave: entry.is_leave || false,
       pb: entry.pb || 0,
       hr: entry.hr || 0,
@@ -68,7 +67,6 @@ const Performance = () => {
         .update({
           calls: editingValues.calls,
           files: calculatedFiles, // calculated sum of states
-          entry: editingValues.entry, // manual entry value
           is_leave: editingValues.is_leave,
           pb: editingValues.pb,
           hr: editingValues.hr,
@@ -190,8 +188,6 @@ const Performance = () => {
           const entryMonth = entryDate.substring(0, 7); // YYYY-MM
           
           let calls = entry.calls || 0;
-          let files = entry.files || 0;
-          let manualEntry = entry.entry || 0;
           let stateSums = 0;
           const states = {};
           stateColumns.forEach(st => {
@@ -207,13 +203,11 @@ const Performance = () => {
               name: teamName,
               totalCalls: 0,
               totalFiles: 0,
-              totalEntries: 0,
               pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
             };
           }
           summaryMap[teamName].totalCalls += calls;
-          summaryMap[teamName].totalFiles += files;
-          summaryMap[teamName].totalEntries += manualEntry;
+          summaryMap[teamName].totalFiles += stateSums;
           stateColumns.forEach(st => {
             summaryMap[teamName][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -226,13 +220,11 @@ const Performance = () => {
               teamName: teamName,
               calls: 0,
               files: 0,
-              totalEntries: 0,
               pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
             };
           }
           dateSummaryMap[dateKey].calls += calls;
-          dateSummaryMap[dateKey].files += files;
-          dateSummaryMap[dateKey].totalEntries += manualEntry;
+          dateSummaryMap[dateKey].files += stateSums;
           stateColumns.forEach(st => {
             dateSummaryMap[dateKey][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -245,13 +237,11 @@ const Performance = () => {
               teamName: teamName,
               calls: 0,
               files: 0,
-              totalEntries: 0,
               pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
             };
           }
           monthSummaryMap[monthKey].calls += calls;
-          monthSummaryMap[monthKey].files += files;
-          monthSummaryMap[monthKey].totalEntries += manualEntry;
+          monthSummaryMap[monthKey].files += stateSums;
           stateColumns.forEach(st => {
             monthSummaryMap[monthKey][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -288,16 +278,13 @@ const Performance = () => {
         acc.leaves += 1;
       } else {
         acc.calls += curr.calls;
-        acc.files += curr.files;
-        acc.entry += curr.entry || 0;
-        stateColumns.forEach(st => {
-          acc.stateEntries += curr[st.toLowerCase()] || 0;
-        });
+        const calculatedFiles = stateColumns.reduce((sum, st) => sum + (curr[st.toLowerCase()] || 0), 0);
+        acc.files += calculatedFiles;
         if (curr.calls > 0) acc.activeDays += 1;
       }
       return acc;
     },
-    { calls: 0, files: 0, entry: 0, stateEntries: 0, activeDays: 0, leaves: 0 }
+    { calls: 0, files: 0, activeDays: 0, leaves: 0 }
   );
 
   return (
@@ -439,11 +426,6 @@ const Performance = () => {
                   <ArrowUpRight size={16} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: 'var(--primary)' }} />
                 </div>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Total Entries</span>
-                  <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{totals.entry}</h2>
-                  <ArrowUpRight size={16} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: 'var(--primary)' }} />
-                </div>
-                <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Leaves</span>
                   <h2 style={{ fontSize: '2rem', marginTop: '0.5rem', color: 'var(--error)' }}>{totals.leaves}</h2>
                 </div>
@@ -460,7 +442,6 @@ const Performance = () => {
                       <th>Calls</th>
                       <th>Files</th>
                       {stateColumns.map(st => <th key={st}>{st}</th>)}
-                      <th>Entry</th>
                       <th style={{ width: '120px', textAlign: 'center' }}>Actions</th>
                     </tr>
                   </thead>
@@ -540,20 +521,6 @@ const Performance = () => {
                                 </td>
                               );
                             })}
-                            <td>
-                              {isEditing ? (
-                                <input 
-                                  type="number"
-                                  className="input-field"
-                                  value={editingValues.entry}
-                                  onChange={(e) => handleEditChange('entry', parseInt(e.target.value) || 0)}
-                                  disabled={editingValues.is_leave}
-                                  style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
-                                />
-                              ) : (
-                                entry.entry || 0
-                              )}
-                            </td>
                             <td style={{ textAlign: 'center' }}>
                               {isEditing ? (
                                 <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
@@ -635,13 +602,12 @@ const Performance = () => {
                     <th>Total Calls</th>
                     <th>Total Files</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
-                    <th>Total Entries</th>
                   </tr>
                 </thead>
                 <tbody>
                   {teamSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={stateColumns.length + 4} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                      <td colSpan={stateColumns.length + 3} style={{ textAlign: 'center', padding: '1.5rem' }}>
                         No team records found for the selected timeframe.
                       </td>
                     </tr>
@@ -654,7 +620,6 @@ const Performance = () => {
                         {stateColumns.map(st => (
                           <td key={st}>{team[st.toLowerCase()].toLocaleString()}</td>
                         ))}
-                        <td style={{ fontWeight: '600' }}>{team.totalEntries.toLocaleString()}</td>
                       </tr>
                     ))
                   )}
@@ -671,13 +636,12 @@ const Performance = () => {
                     <th>Calls</th>
                     <th>Files</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
-                    <th>Total Entries</th>
                   </tr>
                 </thead>
                 <tbody>
                   {teamDateSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={stateColumns.length + 5} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                      <td colSpan={stateColumns.length + 4} style={{ textAlign: 'center', padding: '1.5rem' }}>
                         No records found.
                       </td>
                     </tr>
@@ -691,7 +655,6 @@ const Performance = () => {
                         {stateColumns.map(st => (
                           <td key={st}>{row[st.toLowerCase()].toLocaleString()}</td>
                         ))}
-                        <td style={{ fontWeight: '600' }}>{row.totalEntries.toLocaleString()}</td>
                       </tr>
                     ))
                   )}
@@ -708,13 +671,12 @@ const Performance = () => {
                     <th>Calls</th>
                     <th>Files</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
-                    <th>Total Entries</th>
                   </tr>
                 </thead>
                 <tbody>
                   {teamMonthSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={stateColumns.length + 5} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                      <td colSpan={stateColumns.length + 4} style={{ textAlign: 'center', padding: '1.5rem' }}>
                         No records found.
                       </td>
                     </tr>
@@ -728,7 +690,6 @@ const Performance = () => {
                         {stateColumns.map(st => (
                           <td key={st}>{row[st.toLowerCase()].toLocaleString()}</td>
                         ))}
-                        <td style={{ fontWeight: '600' }}>{row.totalEntries.toLocaleString()}</td>
                       </tr>
                     ))
                   )}

@@ -31,7 +31,6 @@ const DataEntry = () => {
         initialGrid[agent.id] = {
           calls: 0,
           files: 0, // Calculated dynamically
-          entry: 0, // Manual entry
           is_leave: false,
           pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
         };
@@ -64,7 +63,6 @@ const DataEntry = () => {
           resetGrid[agent.id] = {
             calls: 0,
             files: 0,
-            entry: 0,
             is_leave: false,
             pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
           };
@@ -77,7 +75,6 @@ const DataEntry = () => {
               resetGrid[entry.agent_id] = {
                 calls: entry.calls || 0,
                 files: entry.files || 0,
-                entry: entry.entry || 0,
                 is_leave: entry.is_leave || false,
                 pb: entry.pb || 0,
                 hr: entry.hr || 0,
@@ -119,7 +116,6 @@ const DataEntry = () => {
       if (isChecked) {
         updatedRow.calls = 0;
         updatedRow.files = 0;
-        updatedRow.entry = 0;
         stateColumns.forEach(st => {
           updatedRow[st.toLowerCase()] = 0;
         });
@@ -177,14 +173,9 @@ const DataEntry = () => {
             stateSum += val;
           });
 
-          // Optional: If spreadsheet has an extra column for entry, we can try to read it.
-          // Otherwise, we initialize it to 0.
-          const entryVal = parseInt(cols[13]) || 0;
-
           updatedGrid[matchedAgent.id] = {
             calls,
             files: stateSum, // Calculate files as sum of states
-            entry: entryVal,
             is_leave,
             ...stateValues
           };
@@ -221,7 +212,6 @@ const DataEntry = () => {
           date: entryDate,
           calls: row.calls,
           files: calculatedFiles, // calculated sum
-          entry: row.entry, // manual entry
           is_leave: row.is_leave,
           pb: row.pb,
           hr: row.hr,
@@ -280,7 +270,7 @@ const DataEntry = () => {
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
             Copy your rows from Excel or Google Sheets, paste them here, and click Parse. Values will be loaded below for review.
             <br />
-            <span style={{ color: 'var(--text-main)' }}>Columns: Agent | Calls | Files | PB | HR | JK | HP | MP | RJ | UP | BR | Others | Leave | Entry</span>
+            <span style={{ color: 'var(--text-main)' }}>Columns: Agent | Calls | Files | PB | HR | JK | HP | MP | RJ | UP | BR | Others | Leave</span>
           </p>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <textarea 
@@ -366,7 +356,6 @@ const DataEntry = () => {
                     <th>Calls</th>
                     <th>File (Sum)</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
-                    <th>Entry</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -414,16 +403,6 @@ const DataEntry = () => {
                             </td>
                           );
                         })}
-                        <td>
-                          <input 
-                            type="number"
-                            className="input-field"
-                            style={{ width: '75px', padding: '0.25rem', textAlign: 'center' }}
-                            value={row.entry || 0}
-                            onChange={(e) => handleCellChange(agent.id, 'entry', parseInt(e.target.value) || 0)}
-                            disabled={row.is_leave}
-                          />
-                        </td>
                       </tr>
                     );
                   })}

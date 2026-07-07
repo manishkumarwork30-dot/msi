@@ -43,7 +43,6 @@ const Dashboard = () => {
           agent: agent.name || 'Unknown Agent',
           is_leave: entry.is_leave || false,
           calls: entry.calls || 0,
-          entry: entry.entry || 0, // Manual Entry column
           pb: entry.pb || 0,
           hr: entry.hr || 0,
           jk: entry.jk || 0,
@@ -95,7 +94,6 @@ const Dashboard = () => {
   const getTeamTotals = (teamData) => {
     return teamData.reduce((acc, curr) => {
       acc.calls += curr.calls;
-      acc.entry += curr.entry;
       
       let teamStatesSum = 0;
       stateColumns.forEach(st => {
@@ -106,14 +104,13 @@ const Dashboard = () => {
       acc.files += teamStatesSum; // FILE is calculated as the sum of states
       
       return acc;
-    }, { calls: 0, files: 0, entry: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
+    }, { calls: 0, files: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
   };
 
   // Grand Total calculation
   const getGrandTotal = () => {
     return data.reduce((acc, curr) => {
       acc.calls += curr.calls;
-      acc.entry += curr.entry;
       
       let statesSum = 0;
       stateColumns.forEach(st => {
@@ -124,7 +121,7 @@ const Dashboard = () => {
       acc.files += statesSum; // FILE is calculated as the sum of states
       
       return acc;
-    }, { calls: 0, files: 0, entry: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
+    }, { calls: 0, files: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
   };
 
   const grandTotals = getGrandTotal();
@@ -137,7 +134,6 @@ const Dashboard = () => {
         if (field === 'is_leave' && value === true) {
           // Reset values if on leave
           updatedRow.calls = 0;
-          updatedRow.entry = 0;
           stateColumns.forEach(st => updatedRow[st.toLowerCase()] = 0);
         }
         return updatedRow;
@@ -168,7 +164,6 @@ const Dashboard = () => {
           date: selectedDate,
           calls: parseInt(row.calls) || 0,
           files: calculatedFiles, // calculated sum
-          entry: parseInt(row.entry) || 0, // manual entry
           is_leave: !!row.is_leave,
           pb,
           hr,
@@ -230,17 +225,17 @@ const Dashboard = () => {
           });
           const statesStr = stateParts.length > 0 ? ` (${stateParts.join(', ')})` : '';
           const calculatedFiles = stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0);
-          text += `- ${row.agent}: ${row.calls} C | ${calculatedFiles} F | Entry: ${row.entry}${statesStr}\n`;
+          text += `- ${row.agent}: ${row.calls} C | ${calculatedFiles} F${statesStr}\n`;
         }
       });
       const totals = getTeamTotals(teamRows);
-      text += `*${teamName} TOTAL*: ${totals.calls} Calls | ${totals.files} Files | ${totals.entry} Entries\n\n`;
+      text += `*${teamName} TOTAL*: ${totals.calls} Calls | ${totals.files} Files\n\n`;
     });
 
     const grand = getGrandTotal();
     const finalTotalCalls = grand.calls + ivrCalls;
 
-    text += `*GRAND TOTAL*: ${grand.calls} Calls | ${grand.files} Files | ${grand.entry} Entries\n`;
+    text += `*GRAND TOTAL*: ${grand.calls} Calls | ${grand.files} Files\n`;
     text += `*IVR CALLS*: ${ivrCalls}\n`;
     text += `*TOTAL CALLS (WITH IVR)*: ${finalTotalCalls}`;
 
@@ -348,7 +343,6 @@ const Dashboard = () => {
                 {stateColumns.map(state => (
                   <th key={state}>{state}</th>
                 ))}
-                <th>ENTRY</th>
               </tr>
             </thead>
             <tbody>
@@ -429,20 +423,6 @@ const Dashboard = () => {
                                 </td>
                               );
                             })}
-                            <td>
-                              {isEditMode ? (
-                                <input 
-                                  type="number" 
-                                  value={row.entry} 
-                                  disabled={row.is_leave}
-                                  onChange={(e) => handleCellEdit(row.agentId, 'entry', parseInt(e.target.value) || 0)} 
-                                  className="input-field" 
-                                  style={{ width: '65px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
-                                />
-                              ) : (
-                                row.entry
-                              )}
-                            </td>
                           </tr>
                         );
                       })}
@@ -454,7 +434,6 @@ const Dashboard = () => {
                         {stateColumns.map(st => (
                           <td key={st}>{totals[st.toLowerCase()] || 0}</td>
                         ))}
-                        <td style={{ color: 'var(--primary)' }}>{totals.entry}</td>
                       </tr>
                     </React.Fragment>
                   );
@@ -468,7 +447,6 @@ const Dashboard = () => {
                   {stateColumns.map(st => (
                     <td key={st}>{grandTotals[st.toLowerCase()] || 0}</td>
                   ))}
-                  <td style={{ color: 'var(--primary)' }}>{grandTotals.entry}</td>
                 </tr>
   
                 {/* IVR Calls Row */}
