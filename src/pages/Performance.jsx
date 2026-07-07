@@ -4,6 +4,35 @@ import { User, Users, ArrowUpRight, RefreshCw } from 'lucide-react';
 
 const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'OTHERS'];
 
+const getMonthRanges = (dateStr) => {
+  const date = new Date(dateStr);
+  const year = date.getFullYear();
+  const month = date.getMonth(); // 0-indexed
+
+  // Current Month
+  const curStart = new Date(year, month, 1);
+  const curEnd = new Date(year, month + 1, 0);
+
+  // Previous Month
+  const prevStart = new Date(year, month - 1, 1);
+  const prevEnd = new Date(year, month, 0);
+
+  // Format to YYYY-MM-DD
+  const formatDate = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  return {
+    currentStart: formatDate(curStart),
+    currentEnd: formatDate(curEnd),
+    prevStart: formatDate(prevStart),
+    prevEnd: formatDate(prevEnd)
+  };
+};
+
 const Performance = () => {
   const [activeTab, setActiveTab] = useState('agent');
   const [agents, setAgents] = useState([]);
@@ -31,6 +60,7 @@ const Performance = () => {
 
   const [loading, setLoading] = useState(false);
   const [triggerRefresh, setTriggerRefresh] = useState(false);
+  const [selectedAgentMonthly, setSelectedAgentMonthly] = useState({ prev: 0, curr: 0 });
 
   // Inline editing functions
   const startEditing = (entry) => {
@@ -132,6 +162,32 @@ const Performance = () => {
           const lastDay = `${selectedMonth}-${new Date(year, month, 0).getDate()}`;
           query = query.gte('date', firstDay).lte('date', lastDay);
         }
+
+        // Fetch monthly totals for the selected agent based on current local date
+        const todayStr = new Date().toISOString().split('T')[0];
+        const { prevStart, prevEnd, currentStart, currentEnd } = getMonthRanges(todayStr);
+        const { data: monthlyData, error: monthlyErr } = await supabase
+          .from('daily_entries')
+          .select('date, pb, hr, jk, hp, mp, rj, up, br, others')
+          .eq('agent_id', selectedAgent)
+          .gte('date', prevStart)
+          .lte('date', currentEnd);
+
+        if (monthlyErr) throw monthlyErr;
+
+        let prevSum = 0;
+        let currSum = 0;
+        (monthlyData || []).forEach(row => {
+          const rowDate = row.date;
+          const fileSum = (row.pb || 0) + (row.hr || 0) + (row.jk || 0) + (row.hp || 0) + (row.mp || 0) + (row.rj || 0) + (row.up || 0) + (row.br || 0) + (row.others || 0);
+
+          if (rowDate >= currentStart && rowDate <= currentEnd) {
+            currSum += fileSum;
+          } else if (rowDate >= prevStart && rowDate <= prevEnd) {
+            prevSum += fileSum;
+          }
+        });
+        setSelectedAgentMonthly({ prev: prevSum, curr: currSum });
 
         const { data, error } = await query.order('date', { ascending: false });
         if (error) throw error;
@@ -424,6 +480,14 @@ const Performance = () => {
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Total Files</span>
                   <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{totals.files}</h2>
                   <ArrowUpRight size={16} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: 'var(--primary)' }} />
+                </div>
+                <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Prev Month Files</span>
+                  <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{selectedAgentMonthly.prev}</h2>
+                </div>
+                <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Curr Month Files</span>
+                  <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{selectedAgentMonthly.curr}</h2>
                 </div>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Leaves</span>

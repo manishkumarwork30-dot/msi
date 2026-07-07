@@ -4,11 +4,41 @@ import { FileSpreadsheet, Save, Clipboard, RefreshCw } from 'lucide-react';
 
 const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'OTHERS'];
 
+const getMonthRanges = (dateStr) => {
+  const date = new Date(dateStr);
+  const year = date.getFullYear();
+  const month = date.getMonth(); // 0-indexed
+
+  // Current Month
+  const curStart = new Date(year, month, 1);
+  const curEnd = new Date(year, month + 1, 0);
+
+  // Previous Month
+  const prevStart = new Date(year, month - 1, 1);
+  const prevEnd = new Date(year, month, 0);
+
+  // Format to YYYY-MM-DD
+  const formatDate = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  return {
+    currentStart: formatDate(curStart),
+    currentEnd: formatDate(curEnd),
+    prevStart: formatDate(prevStart),
+    prevEnd: formatDate(prevEnd)
+  };
+};
+
 const DataEntry = () => {
   const [agentsList, setAgentsList] = useState([]);
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   const [gridData, setGridData] = useState({});
   const [saving, setSaving] = useState(false);
+  const [monthlyTotals, setMonthlyTotals] = useState({ prev: {}, curr: {} });
 
   // Copy Paste Import State
   const [pastedData, setPastedData] = useState('');
@@ -56,6 +86,31 @@ const DataEntry = () => {
           .eq('date', entryDate);
         
         if (error) throw error;
+
+        // Fetch previous and current month totals for each agent
+        const { prevStart, prevEnd, currentStart, currentEnd } = getMonthRanges(entryDate);
+        const { data: monthlyData, error: monthlyErr } = await supabase
+          .from('daily_entries')
+          .select('agent_id, date, pb, hr, jk, hp, mp, rj, up, br, others')
+          .gte('date', prevStart)
+          .lte('date', currentEnd);
+
+        if (monthlyErr) throw monthlyErr;
+
+        const prevMonthTotals = {};
+        const currMonthTotals = {};
+        (monthlyData || []).forEach(row => {
+          const agentId = row.agent_id;
+          const rowDate = row.date;
+          const fileSum = (row.pb || 0) + (row.hr || 0) + (row.jk || 0) + (row.hp || 0) + (row.mp || 0) + (row.rj || 0) + (row.up || 0) + (row.br || 0) + (row.others || 0);
+
+          if (rowDate >= currentStart && rowDate <= currentEnd) {
+            currMonthTotals[agentId] = (currMonthTotals[agentId] || 0) + fileSum;
+          } else if (rowDate >= prevStart && rowDate <= prevEnd) {
+            prevMonthTotals[agentId] = (prevMonthTotals[agentId] || 0) + fileSum;
+          }
+        });
+        setMonthlyTotals({ prev: prevMonthTotals, curr: currMonthTotals });
 
         // Reset grid to default template first
         const resetGrid = {};
@@ -355,6 +410,8 @@ const DataEntry = () => {
                     <th>Leave?</th>
                     <th>Calls</th>
                     <th>File (Sum)</th>
+                    <th>Prev Month</th>
+                    <th>Curr Month</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
                   </tr>
                 </thead>
@@ -387,6 +444,12 @@ const DataEntry = () => {
                         </td>
                         <td style={{ fontWeight: '600', color: 'var(--text-main)', textAlign: 'center', verticalAlign: 'middle' }}>
                           {calculatedFiles}
+                        </td>
+                        <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', verticalAlign: 'middle' }}>
+                          {monthlyTotals.prev[agent.id] || 0}
+                        </td>
+                        <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', verticalAlign: 'middle' }}>
+                          {monthlyTotals.curr[agent.id] || 0}
                         </td>
                         {stateColumns.map(st => {
                           const key = st.toLowerCase();

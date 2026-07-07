@@ -4,6 +4,35 @@ import { Calendar, RefreshCw, Edit2, Check, X, Share2 } from 'lucide-react';
 
 const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'OTHERS'];
 
+const getMonthRanges = (dateStr) => {
+  const date = new Date(dateStr);
+  const year = date.getFullYear();
+  const month = date.getMonth(); // 0-indexed
+
+  // Current Month
+  const curStart = new Date(year, month, 1);
+  const curEnd = new Date(year, month + 1, 0);
+
+  // Previous Month
+  const prevStart = new Date(year, month - 1, 1);
+  const prevEnd = new Date(year, month, 0);
+
+  // Format to YYYY-MM-DD
+  const formatDate = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  return {
+    currentStart: formatDate(curStart),
+    currentEnd: formatDate(curEnd),
+    prevStart: formatDate(prevStart),
+    prevEnd: formatDate(prevEnd)
+  };
+};
+
 const Dashboard = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [data, setData] = useState([]);
@@ -34,6 +63,30 @@ const Dashboard = () => {
         entryMap[e.agent_id] = e;
       });
 
+      // Fetch previous and current month totals for each agent
+      const { prevStart, prevEnd, currentStart, currentEnd } = getMonthRanges(date);
+      const { data: monthlyData, error: monthlyErr } = await supabase
+        .from('daily_entries')
+        .select('agent_id, date, pb, hr, jk, hp, mp, rj, up, br, others')
+        .gte('date', prevStart)
+        .lte('date', currentEnd);
+
+      if (monthlyErr) throw monthlyErr;
+
+      const prevMonthTotals = {};
+      const currMonthTotals = {};
+      (monthlyData || []).forEach(row => {
+        const agentId = row.agent_id;
+        const rowDate = row.date;
+        const fileSum = (row.pb || 0) + (row.hr || 0) + (row.jk || 0) + (row.hp || 0) + (row.mp || 0) + (row.rj || 0) + (row.up || 0) + (row.br || 0) + (row.others || 0);
+
+        if (rowDate >= currentStart && rowDate <= currentEnd) {
+          currMonthTotals[agentId] = (currMonthTotals[agentId] || 0) + fileSum;
+        } else if (rowDate >= prevStart && rowDate <= prevEnd) {
+          prevMonthTotals[agentId] = (prevMonthTotals[agentId] || 0) + fileSum;
+        }
+      });
+
       // 3. Map Supabase rows to table structure, showing all agents
       const formatted = (agents || []).map(agent => {
         const entry = entryMap[agent.id] || {};
@@ -52,7 +105,9 @@ const Dashboard = () => {
           up: entry.up || 0,
           br: entry.br || 0,
           others: entry.others || 0,
-          id: entry.id || null
+          id: entry.id || null,
+          prevMonthFiles: prevMonthTotals[agent.id] || 0,
+          currMonthFiles: currMonthTotals[agent.id] || 0
         };
       });
 
@@ -94,6 +149,8 @@ const Dashboard = () => {
   const getTeamTotals = (teamData) => {
     return teamData.reduce((acc, curr) => {
       acc.calls += curr.calls;
+      acc.prevMonthFiles += curr.prevMonthFiles || 0;
+      acc.currMonthFiles += curr.currMonthFiles || 0;
       
       let teamStatesSum = 0;
       stateColumns.forEach(st => {
@@ -104,13 +161,15 @@ const Dashboard = () => {
       acc.files += teamStatesSum; // FILE is calculated as the sum of states
       
       return acc;
-    }, { calls: 0, files: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
+    }, { calls: 0, files: 0, prevMonthFiles: 0, currMonthFiles: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
   };
 
   // Grand Total calculation
   const getGrandTotal = () => {
     return data.reduce((acc, curr) => {
       acc.calls += curr.calls;
+      acc.prevMonthFiles += curr.prevMonthFiles || 0;
+      acc.currMonthFiles += curr.currMonthFiles || 0;
       
       let statesSum = 0;
       stateColumns.forEach(st => {
@@ -121,7 +180,7 @@ const Dashboard = () => {
       acc.files += statesSum; // FILE is calculated as the sum of states
       
       return acc;
-    }, { calls: 0, files: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
+    }, { calls: 0, files: 0, prevMonthFiles: 0, currMonthFiles: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
   };
 
   const grandTotals = getGrandTotal();
@@ -340,6 +399,8 @@ const Dashboard = () => {
                 <th style={{ minWidth: '160px' }}>AGENT</th>
                 <th>CALLS</th>
                 <th>FILE</th>
+                <th>PREV MONTH</th>
+                <th>CURR MONTH</th>
                 {stateColumns.map(state => (
                   <th key={state}>{state}</th>
                 ))}
@@ -404,6 +465,12 @@ const Dashboard = () => {
                             <td style={{ fontWeight: '600', color: 'var(--text-main)' }}>
                               {calculatedFiles}
                             </td>
+                            <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center' }}>
+                              {row.prevMonthFiles}
+                            </td>
+                            <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center' }}>
+                              {row.currMonthFiles}
+                            </td>
                             {stateColumns.map(st => {
                               const val = row[st.toLowerCase()];
                               return (
@@ -431,6 +498,8 @@ const Dashboard = () => {
                         <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{teamName} Total:</td>
                         <td>{totals.calls}</td>
                         <td>{totals.files}</td>
+                        <td>{totals.prevMonthFiles}</td>
+                        <td>{totals.currMonthFiles}</td>
                         {stateColumns.map(st => (
                           <td key={st}>{totals[st.toLowerCase()] || 0}</td>
                         ))}
@@ -444,6 +513,8 @@ const Dashboard = () => {
                   <td style={{ textAlign: 'right', color: 'var(--primary)' }}>GRAND TOTAL:</td>
                   <td>{grandTotals.calls}</td>
                   <td>{grandTotals.files}</td>
+                  <td>{grandTotals.prevMonthFiles}</td>
+                  <td>{grandTotals.currMonthFiles}</td>
                   {stateColumns.map(st => (
                     <td key={st}>{grandTotals[st.toLowerCase()] || 0}</td>
                   ))}
@@ -452,7 +523,7 @@ const Dashboard = () => {
                 {/* IVR Calls Row */}
                 <tr className="row-ivr-calls">
                   <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>IVR CALLS:</td>
-                  <td colSpan={1 + stateColumns.length}>
+                  <td colSpan={3 + stateColumns.length}>
                     {isEditMode ? (
                       <input 
                         type="number" 
