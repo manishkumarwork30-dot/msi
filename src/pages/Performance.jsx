@@ -68,6 +68,7 @@ const Performance = () => {
     setEditingValues({
       calls: entry.calls || 0,
       files: entry.files || 0,
+      entry: entry.entry || 0,
       is_leave: entry.is_leave || false,
       pb: entry.pb || 0,
       hr: entry.hr || 0,
@@ -91,12 +92,10 @@ const Performance = () => {
   const saveEditedRow = async (entryId) => {
     setSavingRow(true);
     try {
-      const calculatedFiles = stateColumns.reduce((sum, st) => sum + (editingValues[st.toLowerCase()] || 0), 0);
-      const { error } = await supabase
-        .from('daily_entries')
         .update({
           calls: editingValues.calls,
-          files: calculatedFiles, // calculated sum of states
+          files: editingValues.files,
+          entry: editingValues.entry,
           is_leave: editingValues.is_leave,
           pb: editingValues.pb,
           hr: editingValues.hr,
@@ -168,7 +167,7 @@ const Performance = () => {
         const { prevStart, prevEnd, currentStart, currentEnd } = getMonthRanges(todayStr);
         const { data: monthlyData, error: monthlyErr } = await supabase
           .from('daily_entries')
-          .select('date, pb, hr, jk, hp, mp, rj, up, br, others')
+          .select('date, pb, hr, jk, hp, mp, rj, up, br, others, files, entry')
           .eq('agent_id', selectedAgent)
           .gte('date', prevStart)
           .lte('date', currentEnd);
@@ -179,7 +178,7 @@ const Performance = () => {
         let currSum = 0;
         (monthlyData || []).forEach(row => {
           const rowDate = row.date;
-          const fileSum = (row.pb || 0) + (row.hr || 0) + (row.jk || 0) + (row.hp || 0) + (row.mp || 0) + (row.rj || 0) + (row.up || 0) + (row.br || 0) + (row.others || 0);
+          const fileSum = row.files || 0;
 
           if (rowDate >= currentStart && rowDate <= currentEnd) {
             currSum += fileSum;
@@ -239,7 +238,7 @@ const Performance = () => {
 
         const { data: teamMonthlyData, error: teamMonthlyErr } = await supabase
           .from('daily_entries')
-          .select('date, pb, hr, jk, hp, mp, rj, up, br, others, agents(teams(name))')
+          .select('date, pb, hr, jk, hp, mp, rj, up, br, others, files, entry, agents(teams(name))')
           .gte('date', prevStart)
           .lte('date', currentEnd);
 
@@ -249,7 +248,7 @@ const Performance = () => {
         (teamMonthlyData || []).forEach(row => {
           const tName = row.agents?.teams?.name || 'No Team';
           const rDate = row.date;
-          const fileSum = (row.pb || 0) + (row.hr || 0) + (row.jk || 0) + (row.hp || 0) + (row.mp || 0) + (row.rj || 0) + (row.up || 0) + (row.br || 0) + (row.others || 0);
+          const fileSum = row.files || 0;
           
           if (!teamMonthlyTotals[tName]) {
             teamMonthlyTotals[tName] = { prev: 0, curr: 0 };
@@ -272,6 +271,8 @@ const Performance = () => {
           const entryMonth = entryDate.substring(0, 7); // YYYY-MM
           
           let calls = entry.calls || 0;
+          let files = entry.files || 0;
+          let entriesCount = entry.entry || 0;
           let stateSums = 0;
           const states = {};
           stateColumns.forEach(st => {
@@ -287,13 +288,15 @@ const Performance = () => {
               name: teamName,
               totalCalls: 0,
               totalFiles: 0,
+              totalEntry: 0,
               pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0,
               prevMonthFiles: teamMonthlyTotals[teamName]?.prev || 0,
               currMonthFiles: teamMonthlyTotals[teamName]?.curr || 0
             };
           }
           summaryMap[teamName].totalCalls += calls;
-          summaryMap[teamName].totalFiles += stateSums;
+          summaryMap[teamName].totalFiles += files;
+          summaryMap[teamName].totalEntry += entriesCount;
           stateColumns.forEach(st => {
             summaryMap[teamName][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -306,11 +309,13 @@ const Performance = () => {
               teamName: teamName,
               calls: 0,
               files: 0,
+              entry: 0,
               pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
             };
           }
           dateSummaryMap[dateKey].calls += calls;
-          dateSummaryMap[dateKey].files += stateSums;
+          dateSummaryMap[dateKey].files += files;
+          dateSummaryMap[dateKey].entry += entriesCount;
           stateColumns.forEach(st => {
             dateSummaryMap[dateKey][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -323,11 +328,13 @@ const Performance = () => {
               teamName: teamName,
               calls: 0,
               files: 0,
+              entry: 0,
               pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
             };
           }
           monthSummaryMap[monthKey].calls += calls;
-          monthSummaryMap[monthKey].files += stateSums;
+          monthSummaryMap[monthKey].files += files;
+          monthSummaryMap[monthKey].entry += entriesCount;
           stateColumns.forEach(st => {
             monthSummaryMap[monthKey][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -364,8 +371,8 @@ const Performance = () => {
         acc.leaves += 1;
       } else {
         acc.calls += curr.calls;
-        const calculatedFiles = stateColumns.reduce((sum, st) => sum + (curr[st.toLowerCase()] || 0), 0);
-        acc.files += calculatedFiles;
+        acc.files += curr.files || 0;
+        acc.entry = (acc.entry || 0) + (curr.entry || 0);
         if (curr.calls > 0) acc.activeDays += 1;
       }
       return acc;
@@ -512,6 +519,11 @@ const Performance = () => {
                   <ArrowUpRight size={16} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: 'var(--primary)' }} />
                 </div>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Total Entries</span>
+                  <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{totals.entry || 0}</h2>
+                  <ArrowUpRight size={16} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: 'var(--primary)' }} />
+                </div>
+                <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Last {new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</span>
                   <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{selectedAgentMonthly.prev}</h2>
                 </div>
@@ -535,6 +547,7 @@ const Performance = () => {
                       <th>Status</th>
                       <th>Calls</th>
                       <th>Files</th>
+                      <th>Entry</th>
                       {stateColumns.map(st => <th key={st}>{st}</th>)}
                       <th style={{ width: '120px', textAlign: 'center' }}>Actions</th>
                     </tr>
@@ -563,6 +576,7 @@ const Performance = () => {
                                     if (leaveVal) {
                                       handleEditChange('calls', 0);
                                       handleEditChange('files', 0);
+                                      handleEditChange('entry', 0);
                                       stateColumns.forEach(st => handleEditChange(st.toLowerCase(), 0));
                                     }
                                   }}
@@ -593,8 +607,33 @@ const Performance = () => {
                                 entry.calls
                               )}
                             </td>
-                            <td style={{ fontWeight: '600' }}>
-                              {stateColumns.reduce((sum, st) => sum + (isEditing ? (editingValues[st.toLowerCase()] || 0) : (entry[st.toLowerCase()] || 0)), 0)}
+                            <td>
+                              {isEditing ? (
+                                <input 
+                                  type="number"
+                                  className="input-field"
+                                  value={editingValues.files}
+                                  onChange={(e) => handleEditChange('files', parseInt(e.target.value) || 0)}
+                                  disabled={editingValues.is_leave}
+                                  style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
+                                />
+                              ) : (
+                                entry.files
+                              )}
+                            </td>
+                            <td>
+                              {isEditing ? (
+                                <input 
+                                  type="number"
+                                  className="input-field"
+                                  value={editingValues.entry}
+                                  onChange={(e) => handleEditChange('entry', parseInt(e.target.value) || 0)}
+                                  disabled={editingValues.is_leave}
+                                  style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
+                                />
+                              ) : (
+                                entry.entry
+                              )}
                             </td>
                             {stateColumns.map(st => {
                               const key = st.toLowerCase();
@@ -695,6 +734,7 @@ const Performance = () => {
                     <th>Team (Agency)</th>
                     <th>Total Calls</th>
                     <th>Total Files</th>
+                    <th>Total Entry</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
                     <th>Last {new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</th>
                     <th>First {new Date().toLocaleString('default', { month: 'long' })} Entry</th>
@@ -713,6 +753,7 @@ const Performance = () => {
                         <td style={{ fontWeight: 'bold', color: 'var(--primary)' }}>{team.name}</td>
                         <td>{team.totalCalls.toLocaleString()}</td>
                         <td>{team.totalFiles.toLocaleString()}</td>
+                        <td>{team.totalEntry.toLocaleString()}</td>
                         {stateColumns.map(st => (
                           <td key={st}>{team[st.toLowerCase()].toLocaleString()}</td>
                         ))}
@@ -733,6 +774,7 @@ const Performance = () => {
                     <th>Team (Agency)</th>
                     <th>Calls</th>
                     <th>Files</th>
+                    <th>Entry</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
                   </tr>
                 </thead>
@@ -750,6 +792,7 @@ const Performance = () => {
                         <td style={{ fontWeight: 'bold', color: 'var(--primary)' }}>{row.teamName}</td>
                         <td>{row.calls.toLocaleString()}</td>
                         <td>{row.files.toLocaleString()}</td>
+                        <td>{row.entry.toLocaleString()}</td>
                         {stateColumns.map(st => (
                           <td key={st}>{row[st.toLowerCase()].toLocaleString()}</td>
                         ))}
@@ -768,6 +811,7 @@ const Performance = () => {
                     <th>Team (Agency)</th>
                     <th>Calls</th>
                     <th>Files</th>
+                    <th>Entry</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
                   </tr>
                 </thead>
@@ -785,6 +829,7 @@ const Performance = () => {
                         <td style={{ fontWeight: 'bold', color: 'var(--primary)' }}>{row.teamName}</td>
                         <td>{row.calls.toLocaleString()}</td>
                         <td>{row.files.toLocaleString()}</td>
+                        <td>{row.entry.toLocaleString()}</td>
                         {stateColumns.map(st => (
                           <td key={st}>{row[st.toLowerCase()].toLocaleString()}</td>
                         ))}
