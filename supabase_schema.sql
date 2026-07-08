@@ -1,12 +1,12 @@
 -- Create Teams Table
-CREATE TABLE public.teams (
+CREATE TABLE IF NOT EXISTS public.teams (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- Create Agents Table
-CREATE TABLE public.agents (
+CREATE TABLE IF NOT EXISTS public.agents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     team_id UUID REFERENCES public.teams(id) ON DELETE CASCADE,
@@ -14,7 +14,7 @@ CREATE TABLE public.agents (
 );
 
 -- Create Daily Entries Table
-CREATE TABLE public.daily_entries (
+CREATE TABLE IF NOT EXISTS public.daily_entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_id UUID REFERENCES public.agents(id) ON DELETE CASCADE,
     date DATE NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE public.daily_entries (
 );
 
 -- Create Daily Summary Table
-CREATE TABLE public.daily_summary (
+CREATE TABLE IF NOT EXISTS public.daily_summary (
     date DATE PRIMARY KEY,
     ivr_calls INTEGER DEFAULT 0,
     received_calls INTEGER DEFAULT 0,
@@ -44,4 +44,4 @@ CREATE TABLE public.daily_summary (
 );
 
 -- Optional: Insert default teams based on your image
-INSERT INTO public.teams (name) VALUES ('UT'), ('ARR'), ('IND'), ('MS2');
+INSERT INTO public.teams (name) VALUES ('UT'), ('ARR'), ('IND'), ('MS2') ON CONFLICT (name) DO NOTHING;

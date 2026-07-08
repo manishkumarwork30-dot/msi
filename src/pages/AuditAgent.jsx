@@ -187,7 +187,7 @@ const AuditAgent = () => {
         agentMap[cleanName] = a.id;
       });
 
-      const matchedEntries = [];
+      const matchedEntriesMap = {};
       const unmatched = new Set();
       const uniqueAgentIds = new Set();
       const uniqueDates = new Set();
@@ -206,17 +206,24 @@ const AuditAgent = () => {
         }
 
         if (agentId) {
-          matchedEntries.push({
-            agent_id: agentId,
-            date: item.date,
-            calls: item.calls
-          });
+          const key = `${agentId}_${item.date}`;
+          if (matchedEntriesMap[key]) {
+            matchedEntriesMap[key].calls += item.calls;
+          } else {
+            matchedEntriesMap[key] = {
+              agent_id: agentId,
+              date: item.date,
+              calls: item.calls
+            };
+          }
           uniqueAgentIds.add(agentId);
           uniqueDates.add(item.date);
         } else {
           unmatched.add(item.agent_name);
         }
       });
+
+      const matchedEntries = Object.values(matchedEntriesMap);
 
       if (unmatched.size > 0) {
         setUnmatchedAgentsList(Array.from(unmatched));

@@ -399,11 +399,11 @@ const Dashboard = () => {
                 <th style={{ minWidth: '160px' }}>AGENT</th>
                 <th>CALLS</th>
                 <th>FILE</th>
-                <th>PREV MONTH</th>
-                <th>CURR MONTH</th>
                 {stateColumns.map(state => (
                   <th key={state}>{state}</th>
                 ))}
+                <th>PREV MONTH</th>
+                <th>CURR MONTH</th>
               </tr>
             </thead>
             <tbody>
@@ -465,12 +465,6 @@ const Dashboard = () => {
                             <td style={{ fontWeight: '600', color: 'var(--text-main)' }}>
                               {calculatedFiles}
                             </td>
-                            <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center' }}>
-                              {row.prevMonthFiles}
-                            </td>
-                            <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center' }}>
-                              {row.currMonthFiles}
-                            </td>
                             {stateColumns.map(st => {
                               const val = row[st.toLowerCase()];
                               return (
@@ -490,6 +484,12 @@ const Dashboard = () => {
                                 </td>
                               );
                             })}
+                            <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center' }}>
+                              {row.prevMonthFiles}
+                            </td>
+                            <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center' }}>
+                              {row.currMonthFiles}
+                            </td>
                           </tr>
                         );
                       })}
@@ -498,11 +498,11 @@ const Dashboard = () => {
                         <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{teamName} Total:</td>
                         <td>{totals.calls}</td>
                         <td>{totals.files}</td>
-                        <td>{totals.prevMonthFiles}</td>
-                        <td>{totals.currMonthFiles}</td>
                         {stateColumns.map(st => (
                           <td key={st}>{totals[st.toLowerCase()] || 0}</td>
                         ))}
+                        <td>{totals.prevMonthFiles}</td>
+                        <td>{totals.currMonthFiles}</td>
                       </tr>
                     </React.Fragment>
                   );
@@ -513,39 +513,39 @@ const Dashboard = () => {
                   <td style={{ textAlign: 'right', color: 'var(--primary)' }}>GRAND TOTAL:</td>
                   <td>{grandTotals.calls}</td>
                   <td>{grandTotals.files}</td>
-                  <td>{grandTotals.prevMonthFiles}</td>
-                  <td>{grandTotals.currMonthFiles}</td>
                   {stateColumns.map(st => (
                     <td key={st}>{grandTotals[st.toLowerCase()] || 0}</td>
                   ))}
-                </tr>
-  
-                {/* IVR Calls Row */}
-                <tr className="row-ivr-calls">
-                  <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>IVR CALLS:</td>
-                  <td colSpan={3 + stateColumns.length}>
-                    {isEditMode ? (
-                      <input 
-                        type="number" 
-                        value={ivrCalls} 
-                        onChange={(e) => setIvrCalls(parseInt(e.target.value) || 0)} 
-                        className="input-field" 
-                        style={{ width: '100px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
-                      />
-                    ) : (
-                      ivrCalls
-                    )}
-                  </td>
-                  <td />
+                  <td>{grandTotals.prevMonthFiles}</td>
+                  <td>{grandTotals.currMonthFiles}</td>
                 </tr>
   
                 {/* Total Calls + IVR Row */}
                 <tr className="row-total-calls">
                   <td style={{ textAlign: 'right', color: 'var(--primary)' }}>TOTAL CALLS (WITH IVR):</td>
-                  <td colSpan={1 + stateColumns.length} style={{ color: 'var(--primary)', fontSize: '1.1rem' }}>
-                    {finalTotalCalls}
+                  <td colSpan={2}>
+                    {isEditMode ? (
+                      <input 
+                        type="number" 
+                        value={grandTotals.calls + ivrCalls} 
+                        onChange={(e) => setIvrCalls((parseInt(e.target.value) || 0) - grandTotals.calls)} 
+                        className="input-field" 
+                        style={{ width: '100px', margin: 0, padding: '0.2rem', textAlign: 'center', fontWeight: 'bold' }} 
+                      />
+                    ) : (
+                      <span style={{ color: 'var(--primary)', fontSize: '1.1rem', fontWeight: 'bold' }}>{grandTotals.calls + ivrCalls}</span>
+                    )}
                   </td>
-                  <td />
+                  <td colSpan={2 + stateColumns.length} />
+                </tr>
+
+                {/* IVR Calls Row (Computed) */}
+                <tr className="row-ivr-calls">
+                  <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>IVR CALLS:</td>
+                  <td colSpan={2}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold' }}>{ivrCalls}</span>
+                  </td>
+                  <td colSpan={2 + stateColumns.length} />
                 </tr>
 
             </tbody>
