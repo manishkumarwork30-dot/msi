@@ -233,6 +233,34 @@ const Performance = () => {
 
         if (error) throw error;
 
+        // Fetch monthly totals for all teams (for Last/First Month columns)
+        const todayStr = new Date().toISOString().split('T')[0];
+        const { prevStart, prevEnd, currentStart, currentEnd } = getMonthRanges(todayStr);
+
+        const { data: teamMonthlyData, error: teamMonthlyErr } = await supabase
+          .from('daily_entries')
+          .select('date, pb, hr, jk, hp, mp, rj, up, br, others, agents(teams(name))')
+          .gte('date', prevStart)
+          .lte('date', currentEnd);
+
+        if (teamMonthlyErr) throw teamMonthlyErr;
+
+        const teamMonthlyTotals = {};
+        (teamMonthlyData || []).forEach(row => {
+          const tName = row.agents?.teams?.name || 'No Team';
+          const rDate = row.date;
+          const fileSum = (row.pb || 0) + (row.hr || 0) + (row.jk || 0) + (row.hp || 0) + (row.mp || 0) + (row.rj || 0) + (row.up || 0) + (row.br || 0) + (row.others || 0);
+          
+          if (!teamMonthlyTotals[tName]) {
+            teamMonthlyTotals[tName] = { prev: 0, curr: 0 };
+          }
+          if (rDate >= currentStart && rDate <= currentEnd) {
+            teamMonthlyTotals[tName].curr += fileSum;
+          } else if (rDate >= prevStart && rDate <= prevEnd) {
+            teamMonthlyTotals[tName].prev += fileSum;
+          }
+        });
+
         // Group by Team Name
         const summaryMap = {};
         const dateSummaryMap = {};
@@ -259,7 +287,9 @@ const Performance = () => {
               name: teamName,
               totalCalls: 0,
               totalFiles: 0,
-              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0,
+              prevMonthFiles: teamMonthlyTotals[teamName]?.prev || 0,
+              currMonthFiles: teamMonthlyTotals[teamName]?.curr || 0
             };
           }
           summaryMap[teamName].totalCalls += calls;
@@ -482,11 +512,11 @@ const Performance = () => {
                   <ArrowUpRight size={16} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: 'var(--primary)' }} />
                 </div>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Prev Month Files</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Last {new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</span>
                   <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{selectedAgentMonthly.prev}</h2>
                 </div>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Curr Month Files</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>First {new Date().toLocaleString('default', { month: 'long' })} Entry</span>
                   <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{selectedAgentMonthly.curr}</h2>
                 </div>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
@@ -666,6 +696,8 @@ const Performance = () => {
                     <th>Total Calls</th>
                     <th>Total Files</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
+                    <th>Last {new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</th>
+                    <th>First {new Date().toLocaleString('default', { month: 'long' })} Entry</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -684,6 +716,8 @@ const Performance = () => {
                         {stateColumns.map(st => (
                           <td key={st}>{team[st.toLowerCase()].toLocaleString()}</td>
                         ))}
+                        <td style={{ color: 'var(--text-muted)', textAlign: 'center' }}>{team.prevMonthFiles.toLocaleString()}</td>
+                        <td style={{ color: 'var(--text-muted)', textAlign: 'center' }}>{team.currMonthFiles.toLocaleString()}</td>
                       </tr>
                     ))
                   )}

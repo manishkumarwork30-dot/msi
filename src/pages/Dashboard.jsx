@@ -390,7 +390,7 @@ const Dashboard = () => {
           <div style={{ padding: '3rem', textAlign: 'center' }}>Loading data...</div>
         ) : data.length === 0 ? (
           <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-            No agents registered. Please go to Admin Settings to register teams and agents first.
+            No agents registered. Please go to Admin Settings to register teams and agents first. (Note: If you dropped the tables in Supabase, your data was erased and you will need to re-add your teams/agents).
           </div>
         ) : (
           <table className="data-table">
@@ -402,8 +402,8 @@ const Dashboard = () => {
                 {stateColumns.map(state => (
                   <th key={state}>{state}</th>
                 ))}
-                <th>PREV MONTH</th>
-                <th>CURR MONTH</th>
+                <th>Last {new Date(new Date(selectedDate).getFullYear(), new Date(selectedDate).getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</th>
+                <th>First {new Date(selectedDate).toLocaleString('default', { month: 'long' })} Entry</th>
               </tr>
             </thead>
             <tbody>
