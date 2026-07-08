@@ -162,35 +162,15 @@ const Performance = () => {
           query = query.gte('date', firstDay).lte('date', lastDay);
         }
 
-        // Fetch monthly totals for the selected agent based on current local date
-        const todayStr = new Date().toISOString().split('T')[0];
-        const { prevStart, prevEnd, currentStart, currentEnd } = getMonthRanges(todayStr);
-        const { data: monthlyData, error: monthlyErr } = await supabase
-          .from('daily_entries')
-          .select('date, pb, hr, jk, hp, mp, rj, up, br, others, files, entry')
-          .eq('agent_id', selectedAgent)
-          .gte('date', prevStart)
-          .lte('date', currentEnd);
-
-        if (monthlyErr) throw monthlyErr;
-
-        let prevSum = 0;
-        let currSum = 0;
-        (monthlyData || []).forEach(row => {
-          const rowDate = row.date;
-          const fileSum = row.files || 0;
-
-          if (rowDate >= currentStart && rowDate <= currentEnd) {
-            currSum += fileSum;
-          } else if (rowDate >= prevStart && rowDate <= prevEnd) {
-            prevSum += fileSum;
-          }
-        });
-        setSelectedAgentMonthly({ prev: prevSum, curr: currSum });
-
         const { data, error } = await query.order('date', { ascending: false });
         if (error) throw error;
         setAgentEntries(data || []);
+
+        if (data && data.length > 0) {
+          setSelectedAgentMonthly({ prev: data[0].last_month_entry || 0, curr: data[0].curr_month_entry || 0 });
+        } else {
+          setSelectedAgentMonthly({ prev: 0, curr: 0 });
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -232,32 +212,20 @@ const Performance = () => {
 
         if (error) throw error;
 
-        // Fetch monthly totals for all teams (for Last/First Month columns)
-        const todayStr = new Date().toISOString().split('T')[0];
-        const { prevStart, prevEnd, currentStart, currentEnd } = getMonthRanges(todayStr);
-
-        const { data: teamMonthlyData, error: teamMonthlyErr } = await supabase
-          .from('daily_entries')
-          .select('date, pb, hr, jk, hp, mp, rj, up, br, others, files, entry, agents(teams(name))')
-          .gte('date', prevStart)
-          .lte('date', currentEnd);
-
-        if (teamMonthlyErr) throw teamMonthlyErr;
+        const agentLatest = {};
+        data.forEach(entry => {
+          const agentId = entry.agent_id;
+          if (!agentLatest[agentId] || entry.date > agentLatest[agentId].date) {
+            agentLatest[agentId] = entry;
+          }
+        });
 
         const teamMonthlyTotals = {};
-        (teamMonthlyData || []).forEach(row => {
-          const tName = row.agents?.teams?.name || 'No Team';
-          const rDate = row.date;
-          const fileSum = row.files || 0;
-          
-          if (!teamMonthlyTotals[tName]) {
-            teamMonthlyTotals[tName] = { prev: 0, curr: 0 };
-          }
-          if (rDate >= currentStart && rDate <= currentEnd) {
-            teamMonthlyTotals[tName].curr += fileSum;
-          } else if (rDate >= prevStart && rDate <= prevEnd) {
-            teamMonthlyTotals[tName].prev += fileSum;
-          }
+        Object.values(agentLatest).forEach(entry => {
+          const tName = entry.agents?.teams?.name || 'No Team';
+          if (!teamMonthlyTotals[tName]) teamMonthlyTotals[tName] = { prev: 0, curr: 0 };
+          teamMonthlyTotals[tName].prev += entry.last_month_entry || 0;
+          teamMonthlyTotals[tName].curr += entry.curr_month_entry || 0;
         });
 
         // Group by Team Name

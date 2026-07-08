@@ -63,29 +63,8 @@ const Dashboard = () => {
         entryMap[e.agent_id] = e;
       });
 
-      // Fetch previous and current month totals for each agent
-      const { prevStart, prevEnd, currentStart, currentEnd } = getMonthRanges(date);
-      const { data: monthlyData, error: monthlyErr } = await supabase
-        .from('daily_entries')
-        .select('agent_id, date, pb, hr, jk, hp, mp, rj, up, br, others')
-        .gte('date', prevStart)
-        .lte('date', currentEnd);
+      // Aggregations removed as these are now manual entries
 
-      if (monthlyErr) throw monthlyErr;
-
-      const prevMonthTotals = {};
-      const currMonthTotals = {};
-      (monthlyData || []).forEach(row => {
-        const agentId = row.agent_id;
-        const rowDate = row.date;
-        const fileSum = (row.pb || 0) + (row.hr || 0) + (row.jk || 0) + (row.hp || 0) + (row.mp || 0) + (row.rj || 0) + (row.up || 0) + (row.br || 0) + (row.others || 0);
-
-        if (rowDate >= currentStart && rowDate <= currentEnd) {
-          currMonthTotals[agentId] = (currMonthTotals[agentId] || 0) + fileSum;
-        } else if (rowDate >= prevStart && rowDate <= prevEnd) {
-          prevMonthTotals[agentId] = (prevMonthTotals[agentId] || 0) + fileSum;
-        }
-      });
 
       // 3. Map Supabase rows to table structure, showing all agents
       const formatted = (agents || []).map(agent => {
@@ -108,8 +87,8 @@ const Dashboard = () => {
           br: entry.br || 0,
           others: entry.others || 0,
           id: entry.id || null,
-          prevMonthFiles: prevMonthTotals[agent.id] || 0,
-          currMonthFiles: currMonthTotals[agent.id] || 0
+          prevMonthFiles: entry.last_month_entry || 0,
+          currMonthFiles: entry.curr_month_entry || 0
         };
       });
 
@@ -199,6 +178,8 @@ const Dashboard = () => {
           updatedRow.calls = 0;
           updatedRow.files = 0;
           updatedRow.entry = 0;
+          updatedRow.prevMonthFiles = 0;
+          updatedRow.currMonthFiles = 0;
           stateColumns.forEach(st => updatedRow[st.toLowerCase()] = 0);
         }
         return updatedRow;
@@ -230,6 +211,8 @@ const Dashboard = () => {
           files: parseInt(row.files) || 0,
           entry: parseInt(row.entry) || 0,
           is_leave: !!row.is_leave,
+          last_month_entry: parseInt(row.prevMonthFiles) || 0,
+          curr_month_entry: parseInt(row.currMonthFiles) || 0,
           pb,
           hr,
           jk,
@@ -515,10 +498,32 @@ const Dashboard = () => {
                               );
                             })}
                             <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center' }}>
-                              {row.prevMonthFiles}
+                              {isEditMode ? (
+                                <input 
+                                  type="number" 
+                                  value={row.prevMonthFiles} 
+                                  disabled={row.is_leave}
+                                  onChange={(e) => handleCellEdit(row.agentId, 'prevMonthFiles', parseInt(e.target.value) || 0)} 
+                                  className="input-field" 
+                                  style={{ width: '60px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
+                                />
+                              ) : (
+                                row.prevMonthFiles
+                              )}
                             </td>
                             <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center' }}>
-                              {row.currMonthFiles}
+                              {isEditMode ? (
+                                <input 
+                                  type="number" 
+                                  value={row.currMonthFiles} 
+                                  disabled={row.is_leave}
+                                  onChange={(e) => handleCellEdit(row.agentId, 'currMonthFiles', parseInt(e.target.value) || 0)} 
+                                  className="input-field" 
+                                  style={{ width: '60px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
+                                />
+                              ) : (
+                                row.currMonthFiles
+                              )}
                             </td>
                           </tr>
                         );

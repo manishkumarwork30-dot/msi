@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS public.daily_entries (
     br INTEGER DEFAULT 0,
     others INTEGER DEFAULT 0,
     is_leave BOOLEAN DEFAULT FALSE,
+    last_month_entry INTEGER DEFAULT 0,
+    curr_month_entry INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE(agent_id, date) -- An agent should have only one entry per date
 );
@@ -45,3 +47,7 @@ CREATE TABLE IF NOT EXISTS public.daily_summary (
 
 -- Optional: Insert default teams based on your image
 INSERT INTO public.teams (name) VALUES ('UT'), ('ARR'), ('IND'), ('MS2') ON CONFLICT (name) DO NOTHING;
+
+-- Migrations (safe to run multiple times)
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS last_month_entry INTEGER DEFAULT 0;
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS curr_month_entry INTEGER DEFAULT 0;
