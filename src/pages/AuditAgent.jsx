@@ -20,6 +20,32 @@ const AuditAgent = () => {
   const [dragActive, setDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [agentsDbList, setAgentsDbList] = useState([]);
+
+  // Fetch agents and their teams on mount
+  useEffect(() => {
+    const fetchAgentsTeams = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('agents')
+          .select('id, name, teams(name)');
+        if (error) throw error;
+        setAgentsDbList(data || []);
+      } catch (err) {
+        console.error('Error fetching agents for team mapping:', err);
+      }
+    };
+    fetchAgentsTeams();
+  }, []);
+
+  const agentTeamMap = useMemo(() => {
+    const map = {};
+    agentsDbList.forEach(a => {
+      const cleanName = a.name.trim().toLowerCase().replace(/\s*\(.*?\)\s*/g, '');
+      map[cleanName] = a.teams?.name || 'No Team';
+    });
+    return map;
+  }, [agentsDbList]);
 
   // Syncing states
   const [syncing, setSyncing] = useState(false);
@@ -342,8 +368,11 @@ const AuditAgent = () => {
       }
 
       if (!performanceMap[agent]) {
+        const cleanName = agent.toLowerCase().replace(/\s*\(.*?\)\s*/g, '');
+        const teamName = agentTeamMap[cleanName] || 'No Team';
         performanceMap[agent] = {
           agent_name: agent,
+          team_name: teamName,
           totalCalls: 0,
           incomingReceived: 0,
           outgoingCalls: 0,
@@ -496,6 +525,7 @@ const AuditAgent = () => {
 
     const ws = XLSX.utils.json_to_sheet(agentPerformance.map(p => ({
       'Agent Name': p.agent_name,
+      'Team': p.team_name,
       'Total Calls Taken': p.totalCalls,
       'Incoming Calls Received (duration_in > 0)': p.incomingReceived,
       'Outgoing Calls (duration_out > 0)': p.outgoingCalls,
@@ -716,6 +746,7 @@ const AuditAgent = () => {
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem' }}>Agent Name</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem' }}>Team</th>
                     <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Total Calls</th>
                     <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Incoming Calls (Received)</th>
                     <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Calls</th>
@@ -732,6 +763,7 @@ const AuditAgent = () => {
                     <React.Fragment key={index}>
                       <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', backgroundColor: expandedAgents[perf.agent_name] ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
                         <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', fontWeight: 500 }}>{perf.agent_name}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>{perf.team_name}</td>
                         <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{perf.totalCalls}</td>
                         <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--primary)' }}>{perf.incomingReceived}</td>
                         <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{perf.outgoingCalls}</td>
@@ -771,7 +803,7 @@ const AuditAgent = () => {
                       </tr>
                       {expandedAgents[perf.agent_name] && perf.gaps.length > 0 && (
                         <tr style={{ backgroundColor: 'rgba(239, 68, 68, 0.02)' }}>
-                          <td colSpan={10} style={{ padding: '1rem 1.5rem' }}>
+                          <td colSpan={11} style={{ padding: '1rem 1.5rem' }}>
                             <div style={{ borderLeft: '3px solid #ef4444', paddingLeft: '1rem' }}>
                               <h4 style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 600, marginBottom: '0.5rem' }}>
                                 Gap Analysis Details ({perf.agent_name})
