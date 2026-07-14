@@ -41,7 +41,7 @@ const AuditAgent = () => {
   const agentTeamMap = useMemo(() => {
     const map = {};
     agentsDbList.forEach(a => {
-      const cleanName = a.name.trim().toLowerCase().replace(/\s*\(.*?\)\s*/g, '');
+      const cleanName = (a.name || '').trim().toLowerCase().replace(/\s*\(.*?\)\s*/g, '');
       map[cleanName] = a.teams?.name || 'No Team';
     });
     return map;
@@ -207,9 +207,9 @@ const AuditAgent = () => {
 
       if (agentsError) throw agentsError;
 
-      const agentMap = {};
+       const agentMap = {};
       dbAgents.forEach(a => {
-        const cleanName = a.name.trim().toLowerCase().replace(/\s*\(.*?\)\s*/g, '');
+        const cleanName = (a.name || '').trim().toLowerCase().replace(/\s*\(.*?\)\s*/g, '');
         agentMap[cleanName] = a.id;
       });
 
