@@ -447,28 +447,30 @@ const Dashboard = () => {
                       {teamRows.map((row, idx) => {
                         return (
                           <tr key={idx} className={`row-team-${teamName.toLowerCase()} ${row.is_leave && !isEditMode ? 'row-leave' : ''}`}>
-                            <td style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '45px' }}>
-                              {isEditMode ? (
-                                <>
-                                  <input 
-                                    type="checkbox" 
-                                    checked={row.is_leave} 
-                                    onChange={(e) => handleCellEdit(row.agentId, 'is_leave', e.target.checked)} 
-                                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                                  />
-                                  <span style={{ textDecoration: row.is_leave ? 'line-through' : 'none' }}>
-                                    {row.agent} <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'normal' }}>({row.team})</span>
-                                  </span>
-                                  {row.is_leave && <span style={{ color: 'var(--error)', fontSize: '0.7rem', fontWeight: 'bold' }}>(LEAVE)</span>}
-                                </>
-                              ) : (
-                                <>
-                                  <span>
-                                    {row.agent} <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'normal' }}>({row.team})</span>
-                                  </span>
-                                  {row.is_leave && <span style={{ color: 'var(--error)', fontSize: '0.75rem', fontWeight: 'bold' }}>(LEAVE)</span>}
-                                </>
-                              )}
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '45px' }}>
+                                {isEditMode ? (
+                                  <>
+                                    <input 
+                                      type="checkbox" 
+                                      checked={row.is_leave} 
+                                      onChange={(e) => handleCellEdit(row.agentId, 'is_leave', e.target.checked)} 
+                                      style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                    />
+                                    <span style={{ textDecoration: row.is_leave ? 'line-through' : 'none' }}>
+                                      {row.agent} <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'normal' }}>({row.team})</span>
+                                    </span>
+                                    {row.is_leave && <span style={{ color: 'var(--error)', fontSize: '0.7rem', fontWeight: 'bold' }}>(LEAVE)</span>}
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>
+                                      {row.agent} <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'normal' }}>({row.team})</span>
+                                    </span>
+                                    {row.is_leave && <span style={{ color: 'var(--error)', fontSize: '0.75rem', fontWeight: 'bold' }}>(LEAVE)</span>}
+                                  </>
+                                )}
+                              </div>
                             </td>
                             <td>
                               {isEditMode ? (

@@ -61,6 +61,7 @@ const DataEntry = () => {
         initialGrid[agent.id] = {
           calls: 0,
           files: 0, // Calculated dynamically
+          entry: 0,
           is_leave: false,
           pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
         };
@@ -118,6 +119,7 @@ const DataEntry = () => {
           resetGrid[agent.id] = {
             calls: 0,
             files: 0,
+            entry: 0,
             is_leave: false,
             pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
           };
@@ -125,21 +127,22 @@ const DataEntry = () => {
 
         // Overlay existing database values
         if (data && data.length > 0) {
-          data.forEach(entry => {
-            if (resetGrid[entry.agent_id]) {
-              resetGrid[entry.agent_id] = {
-                calls: entry.calls || 0,
-                files: entry.files || 0,
-                is_leave: entry.is_leave || false,
-                pb: entry.pb || 0,
-                hr: entry.hr || 0,
-                jk: entry.jk || 0,
-                hp: entry.hp || 0,
-                mp: entry.mp || 0,
-                rj: entry.rj || 0,
-                up: entry.up || 0,
-                br: entry.br || 0,
-                others: entry.others || 0
+          data.forEach(item => {
+            if (resetGrid[item.agent_id]) {
+              resetGrid[item.agent_id] = {
+                calls: item.calls || 0,
+                files: item.files || 0,
+                entry: item.entry || 0,
+                is_leave: item.is_leave || false,
+                pb: item.pb || 0,
+                hr: item.hr || 0,
+                jk: item.jk || 0,
+                hp: item.hp || 0,
+                mp: item.mp || 0,
+                rj: item.rj || 0,
+                up: item.up || 0,
+                br: item.br || 0,
+                others: item.others || 0
               };
             }
           });
@@ -155,13 +158,24 @@ const DataEntry = () => {
 
   // Handle cell edits in the grid
   const handleCellChange = (agentId, field, value) => {
-    setGridData(prev => ({
-      ...prev,
-      [agentId]: {
-        ...prev[agentId],
-        [field]: value
+    setGridData(prev => {
+      const updatedRow = { ...prev[agentId], [field]: value };
+      
+      // Auto-calculate entry if any state column changes
+      if (stateColumns.map(s => s.toLowerCase()).includes(field)) {
+        const sum = stateColumns.reduce((acc, st) => {
+          const colName = st.toLowerCase();
+          const val = colName === field ? value : (updatedRow[colName] || 0);
+          return acc + (parseInt(val) || 0);
+        }, 0);
+        updatedRow.entry = sum;
       }
-    }));
+      
+      return {
+        ...prev,
+        [agentId]: updatedRow
+      };
+    });
   };
 
   // Toggle Leave checkbox
@@ -171,6 +185,7 @@ const DataEntry = () => {
       if (isChecked) {
         updatedRow.calls = 0;
         updatedRow.files = 0;
+        updatedRow.entry = 0;
         stateColumns.forEach(st => {
           updatedRow[st.toLowerCase()] = 0;
         });
@@ -217,19 +232,25 @@ const DataEntry = () => {
         });
 
         if (matchedAgent) {
+          const hasEntryCol = cols.length > 13;
           const calls = parseInt(cols[1]) || 0;
-          const is_leave = cols[12]?.toLowerCase() === 'true' || cols[12] === '1';
+          const entryVal = hasEntryCol ? (parseInt(cols[3]) || 0) : 0;
+          const is_leave = hasEntryCol 
+            ? (cols[13]?.toLowerCase() === 'true' || cols[13] === '1')
+            : (cols[12]?.toLowerCase() === 'true' || cols[12] === '1');
 
           const stateValues = {};
           let stateSum = 0;
+          const stateStartIdx = hasEntryCol ? 4 : 3;
           stateColumns.forEach((st, sIdx) => {
-            const val = parseInt(cols[3 + sIdx]) || 0;
+            const val = parseInt(cols[stateStartIdx + sIdx]) || 0;
             stateValues[st.toLowerCase()] = val;
             stateSum += val;
           });
 
           updatedGrid[matchedAgent.id] = {
             calls,
+            entry: hasEntryCol ? entryVal : stateSum,
             files: stateSum, // Calculate files as sum of states
             is_leave,
             ...stateValues
@@ -267,6 +288,7 @@ const DataEntry = () => {
           date: entryDate,
           calls: row.calls,
           files: calculatedFiles, // calculated sum
+          entry: row.entry || 0,
           is_leave: row.is_leave,
           pb: row.pb,
           hr: row.hr,
@@ -410,6 +432,7 @@ const DataEntry = () => {
                     <th>Leave?</th>
                     <th>Calls</th>
                     <th>File (Sum)</th>
+                    <th>Entry</th>
                     <th>Prev Month</th>
                     <th>Curr Month</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
@@ -422,7 +445,9 @@ const DataEntry = () => {
                     return (
                       <tr key={agent.id} style={row.is_leave ? { backgroundColor: 'rgba(239, 68, 68, 0.05)', opacity: 0.6 } : {}}>
                         <td style={{ fontWeight: '500' }}>
-                          {agent.name} <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>({agent.teams?.name || 'No Team'})</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '40px' }}>
+                            {agent.name} <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>({agent.teams?.name || 'No Team'})</span>
+                          </div>
                         </td>
                         <td>
                           <input 
@@ -444,6 +469,16 @@ const DataEntry = () => {
                         </td>
                         <td style={{ fontWeight: '600', color: 'var(--text-main)', textAlign: 'center', verticalAlign: 'middle' }}>
                           {calculatedFiles}
+                        </td>
+                        <td>
+                          <input 
+                            type="number"
+                            className="input-field"
+                            style={{ width: '70px', padding: '0.25rem', textAlign: 'center' }}
+                            value={row.entry || 0}
+                            onChange={(e) => handleCellChange(agent.id, 'entry', parseInt(e.target.value) || 0)}
+                            disabled={row.is_leave}
+                          />
                         </td>
                         <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', verticalAlign: 'middle' }}>
                           {monthlyTotals.prev[agent.id] || 0}
