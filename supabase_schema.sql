@@ -51,3 +51,15 @@ INSERT INTO public.teams (name) VALUES ('UT'), ('ARR'), ('IND'), ('MS2') ON CONF
 -- Migrations (safe to run multiple times)
 ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS last_month_entry INTEGER DEFAULT 0;
 ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS curr_month_entry INTEGER DEFAULT 0;
+
+-- Create Agent Monthly Entries Table
+CREATE TABLE IF NOT EXISTS public.agent_monthly_entries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID REFERENCES public.agents(id) ON DELETE CASCADE,
+    month VARCHAR(7) NOT NULL, -- Format: 'YYYY-MM'
+    last_month_entry INTEGER DEFAULT 0,
+    curr_month_entry INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(agent_id, month)
+);
+

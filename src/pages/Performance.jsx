@@ -166,8 +166,26 @@ const Performance = () => {
         if (error) throw error;
         setAgentEntries(data || []);
 
-        if (data && data.length > 0) {
-          setSelectedAgentMonthly({ prev: data[0].last_month_entry || 0, curr: data[0].curr_month_entry || 0 });
+        let targetMonth = '';
+        if (filterType === 'single') {
+          targetMonth = selectedDate.substring(0, 7);
+        } else if (filterType === 'range') {
+          targetMonth = endDate.substring(0, 7);
+        } else if (filterType === 'month') {
+          targetMonth = selectedMonth;
+        }
+
+        const { data: monthlyData, error: monthlyErr } = await supabase
+          .from('agent_monthly_entries')
+          .select('*')
+          .eq('agent_id', selectedAgent)
+          .eq('month', targetMonth)
+          .maybeSingle();
+
+        if (monthlyErr) throw monthlyErr;
+
+        if (monthlyData) {
+          setSelectedAgentMonthly({ prev: monthlyData.last_month_entry || 0, curr: monthlyData.curr_month_entry || 0 });
         } else {
           setSelectedAgentMonthly({ prev: 0, curr: 0 });
         }
@@ -212,20 +230,28 @@ const Performance = () => {
 
         if (error) throw error;
 
-        const agentLatest = {};
-        data.forEach(entry => {
-          const agentId = entry.agent_id;
-          if (!agentLatest[agentId] || entry.date > agentLatest[agentId].date) {
-            agentLatest[agentId] = entry;
-          }
-        });
+        let targetMonth = '';
+        if (filterType === 'single') {
+          targetMonth = selectedDate.substring(0, 7);
+        } else if (filterType === 'range') {
+          targetMonth = end.substring(0, 7);
+        } else if (filterType === 'month') {
+          targetMonth = selectedMonth;
+        }
+
+        const { data: monthlyData, error: monthlyErr } = await supabase
+          .from('agent_monthly_entries')
+          .select('*, agents(*, teams(*))')
+          .eq('month', targetMonth);
+
+        if (monthlyErr) throw monthlyErr;
 
         const teamMonthlyTotals = {};
-        Object.values(agentLatest).forEach(entry => {
-          const tName = entry.agents?.teams?.name || 'No Team';
+        (monthlyData || []).forEach(m => {
+          const tName = m.agents?.teams?.name || 'No Team';
           if (!teamMonthlyTotals[tName]) teamMonthlyTotals[tName] = { prev: 0, curr: 0 };
-          teamMonthlyTotals[tName].prev += entry.last_month_entry || 0;
-          teamMonthlyTotals[tName].curr += entry.curr_month_entry || 0;
+          teamMonthlyTotals[tName].prev += m.last_month_entry || 0;
+          teamMonthlyTotals[tName].curr += m.curr_month_entry || 0;
         });
 
         // Group by Team Name

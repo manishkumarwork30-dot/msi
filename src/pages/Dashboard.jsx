@@ -63,12 +63,23 @@ const Dashboard = () => {
         entryMap[e.agent_id] = e;
       });
 
-      // Aggregations removed as these are now manual entries
+      // 3. Fetch monthly entries for the selected month
+      const selectedMonth = date.substring(0, 7); // 'YYYY-MM'
+      const { data: monthlyData, error: monthlyErr } = await supabase
+        .from('agent_monthly_entries')
+        .select('*')
+        .eq('month', selectedMonth);
+      if (monthlyErr) throw monthlyErr;
 
+      const monthlyMap = {};
+      (monthlyData || []).forEach(m => {
+        monthlyMap[m.agent_id] = m;
+      });
 
-      // 3. Map Supabase rows to table structure, showing all agents
+      // 4. Map Supabase rows to table structure, showing all agents
       const formatted = (agents || []).map(agent => {
         const entry = entryMap[agent.id] || {};
+        const monthly = monthlyMap[agent.id] || {};
         return {
           agentId: agent.id,
           team: agent.teams?.name || 'No Team',
@@ -87,8 +98,8 @@ const Dashboard = () => {
           br: entry.br || 0,
           others: entry.others || 0,
           id: entry.id || null,
-          prevMonthFiles: entry.last_month_entry || 0,
-          currMonthFiles: entry.curr_month_entry || 0
+          prevMonthFiles: monthly.last_month_entry || 0,
+          currMonthFiles: monthly.curr_month_entry || 0
         };
       });
 
@@ -173,6 +184,17 @@ const Dashboard = () => {
     setData(prevData => prevData.map(row => {
       if (row.agentId === agentId) {
         const updatedRow = { ...row, [field]: value };
+        
+        // Auto-calculate total entry when any state column changes
+        if (stateColumns.map(s => s.toLowerCase()).includes(field)) {
+          const sum = stateColumns.reduce((acc, st) => {
+            const colName = st.toLowerCase();
+            const val = colName === field ? value : (updatedRow[colName] || 0);
+            return acc + (parseInt(val) || 0);
+          }, 0);
+          updatedRow.entry = sum;
+        }
+
         if (field === 'is_leave' && value === true) {
           // Reset values if on leave
           updatedRow.calls = 0;
@@ -211,8 +233,6 @@ const Dashboard = () => {
           files: parseInt(row.files) || 0,
           entry: parseInt(row.entry) || 0,
           is_leave: !!row.is_leave,
-          last_month_entry: parseInt(row.prevMonthFiles) || 0,
-          curr_month_entry: parseInt(row.currMonthFiles) || 0,
           pb,
           hr,
           jk,
@@ -230,6 +250,20 @@ const Dashboard = () => {
         .upsert(entries, { onConflict: 'agent_id,date' });
 
       if (entriesErr) throw entriesErr;
+
+      // 1.5 Save agent monthly entries
+      const monthlyEntries = data.map(row => ({
+        agent_id: row.agentId,
+        month: selectedDate.substring(0, 7),
+        last_month_entry: parseInt(row.prevMonthFiles) || 0,
+        curr_month_entry: parseInt(row.currMonthFiles) || 0
+      }));
+
+      const { error: monthlyErr } = await supabase
+        .from('agent_monthly_entries')
+        .upsert(monthlyEntries, { onConflict: 'agent_id,month' });
+
+      if (monthlyErr) throw monthlyErr;
 
       // 2. Save overall summary (IVR Calls)
       const { error: summaryErr } = await supabase
