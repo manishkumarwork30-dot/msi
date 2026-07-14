@@ -92,6 +92,8 @@ const Performance = () => {
   const saveEditedRow = async (entryId) => {
     setSavingRow(true);
     try {
+      const { error } = await supabase
+        .from('daily_entries')
         .update({
           calls: editingValues.calls,
           files: editingValues.files,
