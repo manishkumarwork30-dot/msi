@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { Upload, Download, Filter, Trash2, Search, ArrowUpDown, ChevronLeft, ChevronRight, FileSpreadsheet, ShieldAlert, Award, Database, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
