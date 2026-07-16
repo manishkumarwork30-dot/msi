@@ -38,7 +38,6 @@ const DataEntry = () => {
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   const [gridData, setGridData] = useState({});
   const [saving, setSaving] = useState(false);
-  const [monthlyTotals, setMonthlyTotals] = useState({ prev: {}, curr: {} });
 
   // Copy Paste Import State
   const [pastedData, setPastedData] = useState('');
@@ -63,7 +62,9 @@ const DataEntry = () => {
           files: 0, // Calculated dynamically
           entry: 0,
           is_leave: false,
-          pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
+          pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0,
+          last_month_entry: 0,
+          curr_month_entry: 0
         };
       });
       setGridData(initialGrid);
@@ -88,40 +89,35 @@ const DataEntry = () => {
         
         if (error) throw error;
 
-        // Fetch previous and current month totals for each agent
-        const { prevStart, prevEnd, currentStart, currentEnd } = getMonthRanges(entryDate);
-        const { data: monthlyData, error: monthlyErr } = await supabase
-          .from('daily_entries')
-          .select('agent_id, date, pb, hr, jk, hp, mp, rj, up, br, others')
-          .gte('date', prevStart)
-          .lte('date', currentEnd);
+        // Fetch monthly entries from agent_monthly_entries table
+        const currentMonthStr = entryDate.substring(0, 7);
+        const { data: monthlyDbData, error: monthlyErr } = await supabase
+          .from('agent_monthly_entries')
+          .select('*')
+          .eq('month', currentMonthStr);
 
         if (monthlyErr) throw monthlyErr;
 
-        const prevMonthTotals = {};
-        const currMonthTotals = {};
-        (monthlyData || []).forEach(row => {
-          const agentId = row.agent_id;
-          const rowDate = row.date;
-          const fileSum = (row.pb || 0) + (row.hr || 0) + (row.jk || 0) + (row.hp || 0) + (row.mp || 0) + (row.rj || 0) + (row.up || 0) + (row.br || 0) + (row.others || 0);
-
-          if (rowDate >= currentStart && rowDate <= currentEnd) {
-            currMonthTotals[agentId] = (currMonthTotals[agentId] || 0) + fileSum;
-          } else if (rowDate >= prevStart && rowDate <= prevEnd) {
-            prevMonthTotals[agentId] = (prevMonthTotals[agentId] || 0) + fileSum;
-          }
+        const monthlyMap = {};
+        (monthlyDbData || []).forEach(row => {
+          monthlyMap[row.agent_id] = {
+            last_month_entry: row.last_month_entry || 0,
+            curr_month_entry: row.curr_month_entry || 0
+          };
         });
-        setMonthlyTotals({ prev: prevMonthTotals, curr: currMonthTotals });
 
         // Reset grid to default template first
         const resetGrid = {};
         agentsList.forEach(agent => {
+          const monthly = monthlyMap[agent.id] || { last_month_entry: 0, curr_month_entry: 0 };
           resetGrid[agent.id] = {
             calls: 0,
             files: 0,
             entry: 0,
             is_leave: false,
-            pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
+            pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0,
+            last_month_entry: monthly.last_month_entry,
+            curr_month_entry: monthly.curr_month_entry
           };
         });
 
@@ -129,6 +125,7 @@ const DataEntry = () => {
         if (data && data.length > 0) {
           data.forEach(item => {
             if (resetGrid[item.agent_id]) {
+              const monthly = monthlyMap[item.agent_id] || { last_month_entry: 0, curr_month_entry: 0 };
               resetGrid[item.agent_id] = {
                 calls: item.calls || 0,
                 files: item.files || 0,
@@ -142,7 +139,9 @@ const DataEntry = () => {
                 rj: item.rj || 0,
                 up: item.up || 0,
                 br: item.br || 0,
-                others: item.others || 0
+                others: item.others || 0,
+                last_month_entry: monthly.last_month_entry,
+                curr_month_entry: monthly.curr_month_entry
               };
             }
           });
@@ -248,7 +247,9 @@ const DataEntry = () => {
             stateSum += val;
           });
 
+          const prevRow = gridData[matchedAgent.id] || {};
           updatedGrid[matchedAgent.id] = {
+            ...prevRow,
             calls,
             entry: hasEntryCol ? entryVal : stateSum,
             files: stateSum, // Calculate files as sum of states
@@ -307,6 +308,23 @@ const DataEntry = () => {
         .upsert(entries, { onConflict: 'agent_id,date' });
 
       if (error) throw error;
+
+      // Save agent monthly entries
+      const monthlyEntries = Object.keys(gridData).map(agentId => {
+        const row = gridData[agentId];
+        return {
+          agent_id: agentId,
+          month: entryDate.substring(0, 7),
+          last_month_entry: parseInt(row.last_month_entry) || 0,
+          curr_month_entry: parseInt(row.curr_month_entry) || 0
+        };
+      });
+
+      const { error: monthlyErr } = await supabase
+        .from('agent_monthly_entries')
+        .upsert(monthlyEntries, { onConflict: 'agent_id,month' });
+
+      if (monthlyErr) throw monthlyErr;
 
       alert(`Successfully saved all records to Supabase for ${entryDate}!`);
     } catch (err) {
@@ -432,10 +450,10 @@ const DataEntry = () => {
                     <th>Leave?</th>
                     <th>Calls</th>
                     <th>File (Sum)</th>
-                    <th>Entry</th>
-                    <th>Prev Month</th>
-                    <th>Curr Month</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
+                    <th>Last {new Date(new Date(entryDate).getFullYear(), new Date(entryDate).getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</th>
+                    <th>First {new Date(entryDate).toLocaleString('default', { month: 'long' })} Entry</th>
+                    <th>Entry</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -470,22 +488,6 @@ const DataEntry = () => {
                         <td style={{ fontWeight: '600', color: 'var(--text-main)', textAlign: 'center', verticalAlign: 'middle' }}>
                           {calculatedFiles}
                         </td>
-                        <td>
-                          <input 
-                            type="number"
-                            className="input-field"
-                            style={{ width: '70px', padding: '0.25rem', textAlign: 'center' }}
-                            value={row.entry || 0}
-                            onChange={(e) => handleCellChange(agent.id, 'entry', parseInt(e.target.value) || 0)}
-                            disabled={row.is_leave}
-                          />
-                        </td>
-                        <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', verticalAlign: 'middle' }}>
-                          {monthlyTotals.prev[agent.id] || 0}
-                        </td>
-                        <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', verticalAlign: 'middle' }}>
-                          {monthlyTotals.curr[agent.id] || 0}
-                        </td>
                         {stateColumns.map(st => {
                           const key = st.toLowerCase();
                           return (
@@ -501,6 +503,36 @@ const DataEntry = () => {
                             </td>
                           );
                         })}
+                        <td>
+                          <input 
+                            type="number"
+                            className="input-field"
+                            style={{ width: '70px', padding: '0.25rem', textAlign: 'center' }}
+                            value={row.last_month_entry || 0}
+                            onChange={(e) => handleCellChange(agent.id, 'last_month_entry', parseInt(e.target.value) || 0)}
+                            disabled={row.is_leave}
+                          />
+                        </td>
+                        <td>
+                          <input 
+                            type="number"
+                            className="input-field"
+                            style={{ width: '70px', padding: '0.25rem', textAlign: 'center' }}
+                            value={row.curr_month_entry || 0}
+                            onChange={(e) => handleCellChange(agent.id, 'curr_month_entry', parseInt(e.target.value) || 0)}
+                            disabled={row.is_leave}
+                          />
+                        </td>
+                        <td>
+                          <input 
+                            type="number"
+                            className="input-field"
+                            style={{ width: '70px', padding: '0.25rem', textAlign: 'center' }}
+                            value={row.entry || 0}
+                            onChange={(e) => handleCellChange(agent.id, 'entry', parseInt(e.target.value) || 0)}
+                            disabled={row.is_leave}
+                          />
+                        </td>
                       </tr>
                     );
                   })}

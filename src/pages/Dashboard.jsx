@@ -421,12 +421,12 @@ const Dashboard = () => {
                 <th style={{ minWidth: '160px' }}>AGENT</th>
                 <th>CALLS</th>
                 <th>FILE</th>
-                <th>ENTRY</th>
                 {stateColumns.map(state => (
                   <th key={state}>{state}</th>
                 ))}
                 <th>Last {new Date(new Date(selectedDate).getFullYear(), new Date(selectedDate).getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</th>
                 <th>First {new Date(selectedDate).toLocaleString('default', { month: 'long' })} Entry</th>
+                <th>ENTRY</th>
               </tr>
             </thead>
             <tbody>
@@ -464,7 +464,7 @@ const Dashboard = () => {
                                   </>
                                 ) : (
                                   <>
-                                    <span>
+                                    <span style={{ textDecoration: row.is_leave ? 'line-through' : 'none' }}>
                                       {row.agent} <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'normal' }}>({row.team})</span>
                                     </span>
                                     {row.is_leave && <span style={{ color: 'var(--error)', fontSize: '0.75rem', fontWeight: 'bold' }}>(LEAVE)</span>}
@@ -498,20 +498,6 @@ const Dashboard = () => {
                                 />
                               ) : (
                                 row.files
-                              )}
-                            </td>
-                            <td style={{ fontWeight: '600', color: 'var(--text-main)' }}>
-                              {isEditMode ? (
-                                <input 
-                                  type="number" 
-                                  value={row.entry} 
-                                  disabled={row.is_leave}
-                                  onChange={(e) => handleCellEdit(row.agentId, 'entry', parseInt(e.target.value) || 0)} 
-                                  className="input-field" 
-                                  style={{ width: '65px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
-                                />
-                              ) : (
-                                row.entry
                               )}
                             </td>
                             {stateColumns.map(st => {
@@ -561,6 +547,20 @@ const Dashboard = () => {
                                 row.currMonthFiles
                               )}
                             </td>
+                            <td style={{ fontWeight: '600', color: 'var(--text-main)' }}>
+                              {isEditMode ? (
+                                <input 
+                                  type="number" 
+                                  value={row.entry} 
+                                  disabled={row.is_leave}
+                                  onChange={(e) => handleCellEdit(row.agentId, 'entry', parseInt(e.target.value) || 0)} 
+                                  className="input-field" 
+                                  style={{ width: '65px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
+                                />
+                              ) : (
+                                row.entry
+                              )}
+                            </td>
                           </tr>
                         );
                       })}
@@ -569,12 +569,12 @@ const Dashboard = () => {
                         <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{teamName} Total:</td>
                         <td>{totals.calls}</td>
                         <td>{totals.files}</td>
-                        <td>{totals.entry}</td>
                         {stateColumns.map(st => (
                           <td key={st}>{totals[st.toLowerCase()] || 0}</td>
                         ))}
                         <td>{totals.prevMonthFiles}</td>
                         <td>{totals.currMonthFiles}</td>
+                        <td>{totals.entry}</td>
                       </tr>
                     </React.Fragment>
                   );
@@ -585,12 +585,12 @@ const Dashboard = () => {
                   <td style={{ textAlign: 'right', color: 'var(--primary)' }}>GRAND TOTAL:</td>
                   <td>{grandTotals.calls}</td>
                   <td>{grandTotals.files}</td>
-                  <td>{grandTotals.entry}</td>
                   {stateColumns.map(st => (
                     <td key={st}>{grandTotals[st.toLowerCase()] || 0}</td>
                   ))}
                   <td>{grandTotals.prevMonthFiles}</td>
                   <td>{grandTotals.currMonthFiles}</td>
+                  <td>{grandTotals.entry}</td>
                 </tr>
   
                 {/* Total Calls + IVR Row */}
