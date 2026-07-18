@@ -216,6 +216,18 @@ const ProtectedRoute = ({ children }) => {
 };
 
 function App() {
+  useEffect(() => {
+    const handleWheel = (e) => {
+      if (document.activeElement && document.activeElement.type === 'number') {
+        document.activeElement.blur();
+      }
+    };
+    document.addEventListener('wheel', handleWheel, { passive: true });
+    return () => {
+      document.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
   return (
     <Router>
       <Routes>
