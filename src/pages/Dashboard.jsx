@@ -433,11 +433,10 @@ const Dashboard = () => {
                 {stateColumns.map(state => (
                   <th key={state}>{state}</th>
                 ))}
-                <th>Last {new Date(new Date(selectedDate).getFullYear(), new Date(selectedDate).getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</th>
-                <th>First {new Date(selectedDate).toLocaleString('default', { month: 'long' })} Entry</th>
-                <th>ENTRY</th>
-              </tr>
-            </thead>
+                 <th>Last {new Date(new Date(selectedDate).getFullYear(), new Date(selectedDate).getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</th>
+                 <th>First {new Date(selectedDate).toLocaleString('default', { month: 'long' })} Entry</th>
+               </tr>
+             </thead>
             <tbody>
               {Object.keys(groupedData).map(teamName => {
                 const teamRows = groupedData[teamName];
@@ -545,20 +544,6 @@ const Dashboard = () => {
                                 row.currMonthFiles
                               )}
                             </td>
-                            <td style={{ fontWeight: '600', color: 'var(--text-main)' }}>
-                              {isEditMode ? (
-                                <input 
-                                  type="number" 
-                                  value={row.entry} 
-                                  disabled={row.is_leave}
-                                  onChange={(e) => handleCellEdit(row.agentId, 'entry', parseInt(e.target.value) || 0)} 
-                                  className="input-field" 
-                                  style={{ width: '65px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
-                                />
-                              ) : (
-                                row.entry
-                              )}
-                            </td>
                           </tr>
                         );
                       })}
@@ -572,7 +557,6 @@ const Dashboard = () => {
                         ))}
                         <td>{totals.prevMonthFiles}</td>
                         <td>{totals.currMonthFiles}</td>
-                        <td>{totals.entry}</td>
                       </tr>
                     </React.Fragment>
                   );
@@ -588,7 +572,6 @@ const Dashboard = () => {
                   ))}
                   <td>{grandTotals.prevMonthFiles}</td>
                   <td>{grandTotals.currMonthFiles}</td>
-                  <td>{grandTotals.entry}</td>
                 </tr>
   
                 {/* Total Calls + IVR Row */}

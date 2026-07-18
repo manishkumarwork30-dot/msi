@@ -453,7 +453,6 @@ const DataEntry = () => {
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
                     <th>Last {new Date(new Date(entryDate).getFullYear(), new Date(entryDate).getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</th>
                     <th>First {new Date(entryDate).toLocaleString('default', { month: 'long' })} Entry</th>
-                    <th>Entry</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -520,16 +519,6 @@ const DataEntry = () => {
                             style={{ width: '70px', padding: '0.25rem', textAlign: 'center' }}
                             value={row.curr_month_entry || 0}
                             onChange={(e) => handleCellChange(agent.id, 'curr_month_entry', parseInt(e.target.value) || 0)}
-                            disabled={row.is_leave}
-                          />
-                        </td>
-                        <td>
-                          <input 
-                            type="number"
-                            className="input-field"
-                            style={{ width: '70px', padding: '0.25rem', textAlign: 'center' }}
-                            value={row.entry || 0}
-                            onChange={(e) => handleCellChange(agent.id, 'entry', parseInt(e.target.value) || 0)}
                             disabled={row.is_leave}
                           />
                         </td>
