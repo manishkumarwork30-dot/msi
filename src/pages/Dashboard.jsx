@@ -245,12 +245,6 @@ const Dashboard = () => {
           up,
           br,
           others
-        };
-
-        if (row.id) {
-          entryObj.id = row.id;
-        }
-
         return entryObj;
       });
 
