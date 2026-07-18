@@ -185,13 +185,14 @@ const Dashboard = () => {
       if (row.agentId === agentId) {
         const updatedRow = { ...row, [field]: value };
         
-        // Auto-calculate total entry when any state column changes
+        // Auto-calculate files and entry when any state column changes
         if (stateColumns.map(s => s.toLowerCase()).includes(field)) {
           const sum = stateColumns.reduce((acc, st) => {
             const colName = st.toLowerCase();
             const val = colName === field ? value : (updatedRow[colName] || 0);
             return acc + (parseInt(val) || 0);
           }, 0);
+          updatedRow.files = sum;
           updatedRow.entry = sum;
         }
 
@@ -226,12 +227,14 @@ const Dashboard = () => {
         const br = parseInt(row.br) || 0;
         const others = parseInt(row.others) || 0;
 
+        const calculatedFiles = pb + hr + jk + hp + mp + rj + up + br + others;
+
         const entryObj = {
           agent_id: row.agentId,
           date: selectedDate,
           calls: parseInt(row.calls) || 0,
-          files: parseInt(row.files) || 0,
-          entry: parseInt(row.entry) || 0,
+          files: calculatedFiles,
+          entry: calculatedFiles,
           is_leave: !!row.is_leave,
           pb,
           hr,
@@ -492,19 +495,8 @@ const Dashboard = () => {
                                 row.calls
                               )}
                             </td>
-                            <td style={{ fontWeight: '600', color: 'var(--text-main)' }}>
-                              {isEditMode ? (
-                                <input 
-                                  type="number" 
-                                  value={row.files} 
-                                  disabled={row.is_leave}
-                                  onChange={(e) => handleCellEdit(row.agentId, 'files', parseInt(e.target.value) || 0)} 
-                                  className="input-field" 
-                                  style={{ width: '65px', margin: 0, padding: '0.2rem', textAlign: 'center' }} 
-                                />
-                              ) : (
-                                row.files
-                              )}
+                            <td style={{ fontWeight: '600', color: 'var(--text-main)', textAlign: 'center' }}>
+                              {stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0)}
                             </td>
                             {stateColumns.map(st => {
                               const val = row[st.toLowerCase()];
