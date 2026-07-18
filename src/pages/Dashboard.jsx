@@ -245,6 +245,8 @@ const Dashboard = () => {
           up,
           br,
           others
+        };
+
         return entryObj;
       });
 
