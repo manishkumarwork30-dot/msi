@@ -454,7 +454,7 @@ const Dashboard = () => {
                         return (
                           <tr key={idx} className={`row-team-${teamName.toLowerCase()} ${row.is_leave && !isEditMode ? 'row-leave' : ''}`}>
                             <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '45px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '26px' }}>
                                 {isEditMode ? (
                                   <>
                                     <input 

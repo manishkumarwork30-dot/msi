@@ -117,6 +117,12 @@ h1, h2, h3, h4, h5, h6 {
   overflow: auto;
   border-radius: 8px;
   border: 1px solid var(--border-color);
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.data-table-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
 }
 
 .data-table {
@@ -124,11 +130,11 @@ h1, h2, h3, h4, h5, h6 {
   border-collapse: separate; /* Required for sticky borders to look correct */
   border-spacing: 0;
   text-align: left;
-  font-size: 0.875rem;
+  font-size: 0.78rem;
 }
 
 .data-table th, .data-table td {
-  padding: 0.75rem 1rem;
+  padding: 0.3rem 0.5rem;
   border-bottom: 1px solid var(--border-color);
   border-right: 1px solid var(--border-color);
 }
@@ -150,17 +156,17 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Sticky first column for Agent Names */
 .data-table th:first-child,
-.data-table td:first-child {
+.data-table tr td:first-child {
   position: sticky;
   left: 0;
-  background-color: #16181d; /* Solid opaque color */
+  background-color: var(--row-bg, #16181d) !important; /* Force solid background based on team color */
   z-index: 8;
   border-right: 2px solid var(--border-color);
 }
 
 .data-table th:first-child {
   z-index: 12;
-  background-color: #1a1d24;
+  background-color: #1a1d24 !important;
 }
 
 .data-table tr:hover td {

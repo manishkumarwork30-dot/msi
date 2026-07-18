@@ -463,7 +463,7 @@ const DataEntry = () => {
                     return (
                       <tr key={agent.id} style={row.is_leave ? { backgroundColor: 'rgba(239, 68, 68, 0.05)', opacity: 0.6 } : {}}>
                         <td style={{ fontWeight: '500' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '40px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '26px' }}>
                             {agent.name} <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>({agent.teams?.name || 'No Team'})</span>
                           </div>
                         </td>
