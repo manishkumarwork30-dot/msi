@@ -226,7 +226,7 @@ const Dashboard = () => {
         const br = parseInt(row.br) || 0;
         const others = parseInt(row.others) || 0;
 
-        return {
+        const entryObj = {
           agent_id: row.agentId,
           date: selectedDate,
           calls: parseInt(row.calls) || 0,
@@ -243,6 +243,12 @@ const Dashboard = () => {
           br,
           others
         };
+
+        if (row.id) {
+          entryObj.id = row.id;
+        }
+
+        return entryObj;
       });
 
       const { error: entriesErr } = await supabase
@@ -271,7 +277,7 @@ const Dashboard = () => {
         .upsert({
           date: selectedDate,
           ivr_calls: parseInt(ivrCalls) || 0
-        });
+        }, { onConflict: 'date' });
 
       if (summaryErr) throw summaryErr;
 

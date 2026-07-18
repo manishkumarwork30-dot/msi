@@ -63,3 +63,18 @@ CREATE TABLE IF NOT EXISTS public.agent_monthly_entries (
     UNIQUE(agent_id, month)
 );
 
+-- RLS Policy Fixes (Run this in Supabase SQL Editor if you get RLS errors)
+-- Option A: Enable full access for authenticated users (Recommended since you use login)
+ALTER TABLE public.agent_monthly_entries ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all actions for authenticated users on agent_monthly_entries" ON public.agent_monthly_entries;
+CREATE POLICY "Allow all actions for authenticated users on agent_monthly_entries"
+ON public.agent_monthly_entries
+FOR ALL
+TO authenticated
+USING (true)
+WITH CHECK (true);
+
+-- Option B: Disable RLS completely if you want to bypass policies
+-- ALTER TABLE public.agent_monthly_entries DISABLE ROW LEVEL SECURITY;
+
+
