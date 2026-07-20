@@ -14,6 +14,26 @@ const REQUIRED_COLUMNS = [
   'agent_name'
 ];
 
+const parseNum = (val) => {
+  if (val === null || val === undefined || val === '') return 0;
+  const num = parseFloat(val);
+  return isNaN(num) ? 0 : num;
+};
+
+const formatDuration = (seconds) => {
+  if (isNaN(seconds) || seconds <= 0) return '0s';
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  if (hrs > 0) {
+    return `${hrs}h ${mins}m ${secs}s`;
+  }
+  if (mins > 0) {
+    return `${mins}m ${secs}s`;
+  }
+  return `${secs}s`;
+};
+
 const AuditAgent = () => {
   const [rawData, setRawData] = useState([]);
   const [fileName, setFileName] = useState('');
@@ -442,27 +462,6 @@ const AuditAgent = () => {
     } finally {
       setSyncing(false);
     }
-  };
-
-  // Helper parser for durations
-  const parseNum = (val) => {
-    if (val === null || val === undefined || val === '') return 0;
-    const num = parseFloat(val);
-    return isNaN(num) ? 0 : num;
-  };
-
-  const formatDuration = (seconds) => {
-    if (isNaN(seconds) || seconds <= 0) return '0s';
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    if (hrs > 0) {
-      return `${hrs}h ${mins}m ${secs}s`;
-    }
-    if (mins > 0) {
-      return `${mins}m ${secs}s`;
-    }
-    return `${secs}s`;
   };
 
   // Agent Performance Calculations
