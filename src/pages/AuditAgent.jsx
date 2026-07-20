@@ -172,6 +172,10 @@ const AuditAgent = () => {
       const parsed = new Date(callStartTimeStr);
       if (isNaN(parsed.getTime())) return;
       
+      const durationIn = parseNum(row.duration_in);
+      const durationOut = parseNum(row.duration_out);
+      const duration = Math.max(durationIn, durationOut);
+
       // Get local YYYY-MM-DD
       const year = parsed.getFullYear();
       const month = String(parsed.getMonth() + 1).padStart(2, '0');
@@ -183,10 +187,78 @@ const AuditAgent = () => {
         performanceMap[key] = {
           agent_name: agentName,
           date: dateStr,
-          calls: 0
+          calls: 0,
+          incoming_duration: 0,
+          outgoing_duration: 0,
+          long_calls: 0,
+          rawCalls: []
         };
       }
-      performanceMap[key].calls += 1;
+      const perf = performanceMap[key];
+      perf.calls += 1;
+      perf.incoming_duration += durationIn;
+      perf.outgoing_duration += durationOut;
+      if (durationIn > 120 || durationOut > 120) {
+        perf.long_calls += 1;
+      }
+      perf.rawCalls.push({
+        time: parsed,
+        duration: duration,
+        Src: row.Src
+      });
+    });
+    
+    // Post-process to sort calls and compute gaps, first/last call times
+    Object.values(performanceMap).forEach(perf => {
+      perf.rawCalls.sort((a, b) => a.time - b.time);
+      
+      if (perf.rawCalls.length > 0) {
+        const firstCall = perf.rawCalls[0].time;
+        const lastCall = perf.rawCalls[perf.rawCalls.length - 1].time;
+        
+        const formatTime = (d) => {
+          return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        };
+        perf.first_call_time = formatTime(firstCall);
+        perf.last_call_time = formatTime(lastCall);
+      } else {
+        perf.first_call_time = null;
+        perf.last_call_time = null;
+      }
+      
+      // Calculate gaps (>10 minutes, i.e., 600 seconds)
+      const gapsList = [];
+      let totalGapSecs = 0;
+      
+      for (let i = 1; i < perf.rawCalls.length; i++) {
+        const prev = perf.rawCalls[i - 1];
+        const curr = perf.rawCalls[i];
+        
+        const prevEnd = new Date(prev.time.getTime() + prev.duration * 1000);
+        const gapSecs = (curr.time.getTime() - prevEnd.getTime()) / 1000;
+        
+        if (gapSecs > 600) {
+          gapsList.push({
+            duration: gapSecs,
+            from: prevEnd,
+            to: curr.time,
+            prevSrc: prev.Src,
+            currSrc: curr.Src
+          });
+          totalGapSecs += gapSecs;
+        }
+      }
+      
+      perf.gaps_count = gapsList.length;
+      perf.total_gap_duration = Math.round(totalGapSecs);
+      perf.gap_details = gapsList.map(g => {
+        const durStr = formatDuration(g.duration);
+        const fromStr = g.from.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const toStr = g.to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `${durStr} gap (${fromStr} to ${toStr})`;
+      }).join('; ') || 'No Gaps';
+      
+      delete perf.rawCalls;
     });
     
     return Object.values(performanceMap);
@@ -207,7 +279,7 @@ const AuditAgent = () => {
 
       if (agentsError) throw agentsError;
 
-       const agentMap = {};
+      const agentMap = {};
       dbAgents.forEach(a => {
         const cleanName = (a.name || '').trim().toLowerCase().replace(/\s*\(.*?\)\s*/g, '');
         agentMap[cleanName] = a.id;
@@ -235,11 +307,41 @@ const AuditAgent = () => {
           const key = `${agentId}_${item.date}`;
           if (matchedEntriesMap[key]) {
             matchedEntriesMap[key].calls += item.calls;
+            matchedEntriesMap[key].incoming_duration += item.incoming_duration;
+            matchedEntriesMap[key].outgoing_duration += item.outgoing_duration;
+            matchedEntriesMap[key].long_calls += item.long_calls;
+            matchedEntriesMap[key].total_gap_duration += item.total_gap_duration;
+            matchedEntriesMap[key].gaps_count += item.gaps_count;
+            if (item.gap_details && item.gap_details !== 'No Gaps') {
+              if (matchedEntriesMap[key].gap_details && matchedEntriesMap[key].gap_details !== 'No Gaps') {
+                matchedEntriesMap[key].gap_details += '; ' + item.gap_details;
+              } else {
+                matchedEntriesMap[key].gap_details = item.gap_details;
+              }
+            }
+            if (item.first_call_time) {
+              if (!matchedEntriesMap[key].first_call_time || item.first_call_time < matchedEntriesMap[key].first_call_time) {
+                matchedEntriesMap[key].first_call_time = item.first_call_time;
+              }
+            }
+            if (item.last_call_time) {
+              if (!matchedEntriesMap[key].last_call_time || item.last_call_time > matchedEntriesMap[key].last_call_time) {
+                matchedEntriesMap[key].last_call_time = item.last_call_time;
+              }
+            }
           } else {
             matchedEntriesMap[key] = {
               agent_id: agentId,
               date: item.date,
-              calls: item.calls
+              calls: item.calls,
+              incoming_duration: item.incoming_duration,
+              outgoing_duration: item.outgoing_duration,
+              long_calls: item.long_calls,
+              first_call_time: item.first_call_time,
+              last_call_time: item.last_call_time,
+              gaps_count: item.gaps_count,
+              total_gap_duration: item.total_gap_duration,
+              gap_details: item.gap_details
             };
           }
           uniqueAgentIds.add(agentId);
@@ -289,13 +391,29 @@ const AuditAgent = () => {
           const { id, created_at, ...rest } = existing;
           return {
             ...rest,
-            calls: item.calls
+            calls: item.calls,
+            incoming_duration: item.incoming_duration,
+            outgoing_duration: item.outgoing_duration,
+            long_calls: item.long_calls,
+            first_call_time: item.first_call_time,
+            last_call_time: item.last_call_time,
+            gaps_count: item.gaps_count,
+            total_gap_duration: item.total_gap_duration,
+            gap_details: item.gap_details
           };
         } else {
           return {
             agent_id: item.agent_id,
             date: item.date,
             calls: item.calls,
+            incoming_duration: item.incoming_duration,
+            outgoing_duration: item.outgoing_duration,
+            long_calls: item.long_calls,
+            first_call_time: item.first_call_time,
+            last_call_time: item.last_call_time,
+            gaps_count: item.gaps_count,
+            total_gap_duration: item.total_gap_duration,
+            gap_details: item.gap_details,
             files: 0,
             entry: 0,
             is_leave: false,

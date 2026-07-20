@@ -77,4 +77,15 @@ WITH CHECK (true);
 -- Option B: Disable RLS completely if you want to bypass policies
 -- ALTER TABLE public.agent_monthly_entries DISABLE ROW LEVEL SECURITY;
 
+-- Migrations for Agent Audits (added 2026-07-20)
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS first_call_time TEXT;
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS last_call_time TEXT;
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS gaps_count INTEGER DEFAULT 0;
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS gap_details TEXT;
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS total_gap_duration INTEGER DEFAULT 0;
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS long_calls INTEGER DEFAULT 0;
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS incoming_duration INTEGER DEFAULT 0;
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS outgoing_duration INTEGER DEFAULT 0;
+
+
 

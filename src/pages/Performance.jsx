@@ -4,6 +4,21 @@ import { User, Users, ArrowUpRight, RefreshCw } from 'lucide-react';
 
 const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'OTHERS'];
 
+const formatDuration = (seconds) => {
+  if (isNaN(seconds) || seconds <= 0) return '0s';
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  if (hrs > 0) {
+    return `${hrs}h ${mins}m ${secs}s`;
+  }
+  if (mins > 0) {
+    return `${mins}m ${secs}s`;
+  }
+  return `${secs}s`;
+};
+
+
 const getMonthRanges = (dateStr) => {
   const date = new Date(dateStr);
   const year = date.getFullYear();
@@ -61,6 +76,8 @@ const Performance = () => {
   const [loading, setLoading] = useState(false);
   const [triggerRefresh, setTriggerRefresh] = useState(false);
   const [selectedAgentMonthly, setSelectedAgentMonthly] = useState({ prev: 0, curr: 0 });
+  const [expandedRows, setExpandedRows] = useState({});
+
 
   // Inline editing functions
   const startEditing = (entry) => {
@@ -369,11 +386,15 @@ const Performance = () => {
         acc.calls += curr.calls;
         acc.files += curr.files || 0;
         acc.entry = (acc.entry || 0) + (curr.entry || 0);
+        acc.longCalls += curr.long_calls || 0;
+        acc.incomingDuration += curr.incoming_duration || 0;
+        acc.outgoingDuration += curr.outgoing_duration || 0;
+        acc.gaps += curr.gaps_count || 0;
         if (curr.calls > 0) acc.activeDays += 1;
       }
       return acc;
     },
-    { calls: 0, files: 0, activeDays: 0, leaves: 0 }
+    { calls: 0, files: 0, activeDays: 0, leaves: 0, longCalls: 0, incomingDuration: 0, outgoingDuration: 0, gaps: 0 }
   );
 
   return (
@@ -531,6 +552,22 @@ const Performance = () => {
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Leaves</span>
                   <h2 style={{ fontSize: '2rem', marginTop: '0.5rem', color: 'var(--error)' }}>{totals.leaves}</h2>
                 </div>
+                <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Long Calls (&gt; 120s)</span>
+                  <h2 style={{ fontSize: '2rem', marginTop: '0.5rem', color: '#f59e0b' }}>{totals.longCalls}</h2>
+                </div>
+                <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Total Gaps</span>
+                  <h2 style={{ fontSize: '2rem', marginTop: '0.5rem', color: '#ef4444' }}>{totals.gaps}</h2>
+                </div>
+                <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Incoming Duration</span>
+                  <h2 style={{ fontSize: '1.5rem', marginTop: '0.5rem' }}>{formatDuration(totals.incomingDuration)}</h2>
+                </div>
+                <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Outgoing Duration</span>
+                  <h2 style={{ fontSize: '1.5rem', marginTop: '0.5rem' }}>{formatDuration(totals.outgoingDuration)}</h2>
+                </div>
               </div>
 
               {/* Performance Log with Inline Editing */}
@@ -544,6 +581,12 @@ const Performance = () => {
                       <th>Calls</th>
                       <th>Files</th>
                       <th>Entry</th>
+                      <th>First Call</th>
+                      <th>Last Call</th>
+                      <th>Gaps</th>
+                      <th>Long Calls</th>
+                      <th>Incoming Dur.</th>
+                      <th>Outgoing Dur.</th>
                       {stateColumns.map(st => <th key={st}>{st}</th>)}
                       <th style={{ width: '120px', textAlign: 'center' }}>Actions</th>
                     </tr>
@@ -551,7 +594,7 @@ const Performance = () => {
                   <tbody>
                     {agentEntries.length === 0 ? (
                       <tr>
-                        <td colSpan={stateColumns.length + 5} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                        <td colSpan={stateColumns.length + 12} style={{ textAlign: 'center', padding: '1.5rem' }}>
                           No records found for the selected parameters.
                         </td>
                       </tr>
@@ -559,127 +602,176 @@ const Performance = () => {
                       agentEntries.map(entry => {
                         const isEditing = editingRowId === entry.id;
                         return (
-                          <tr key={entry.id} style={entry.is_leave && !isEditing ? { opacity: 0.5, backgroundColor: 'rgba(239, 68, 68, 0.05)' } : {}}>
-                            <td>{entry.date}</td>
-                            <td>
-                              {isEditing ? (
-                                <select 
-                                  className="input-field"
-                                  value={editingValues.is_leave ? 'leave' : 'active'}
-                                  onChange={(e) => {
-                                    const leaveVal = e.target.value === 'leave';
-                                    handleEditChange('is_leave', leaveVal);
-                                    if (leaveVal) {
-                                      handleEditChange('calls', 0);
-                                      handleEditChange('files', 0);
-                                      handleEditChange('entry', 0);
-                                      stateColumns.forEach(st => handleEditChange(st.toLowerCase(), 0));
-                                    }
-                                  }}
-                                  style={{ padding: '0.25rem', fontSize: '0.8rem', width: '90px' }}
-                                >
-                                  <option value="active">ACTIVE</option>
-                                  <option value="leave">ON LEAVE</option>
-                                </select>
-                              ) : (
-                                entry.is_leave ? (
-                                  <span style={{ color: 'var(--error)', fontWeight: 'bold' }}>ON LEAVE</span>
-                                ) : (
-                                  <span style={{ color: 'var(--primary)' }}>ACTIVE</span>
-                                )
-                              )}
-                            </td>
-                            <td>
-                              {isEditing ? (
-                                <input 
-                                  type="number"
-                                  className="input-field"
-                                  value={editingValues.calls}
-                                  onChange={(e) => handleEditChange('calls', parseInt(e.target.value) || 0)}
-                                  disabled={editingValues.is_leave}
-                                  style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
-                                />
-                              ) : (
-                                entry.calls
-                              )}
-                            </td>
-                            <td>
-                              {isEditing ? (
-                                <input 
-                                  type="number"
-                                  className="input-field"
-                                  value={editingValues.files}
-                                  onChange={(e) => handleEditChange('files', parseInt(e.target.value) || 0)}
-                                  disabled={editingValues.is_leave}
-                                  style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
-                                />
-                              ) : (
-                                entry.files
-                              )}
-                            </td>
-                            <td>
-                              {isEditing ? (
-                                <input 
-                                  type="number"
-                                  className="input-field"
-                                  value={editingValues.entry}
-                                  onChange={(e) => handleEditChange('entry', parseInt(e.target.value) || 0)}
-                                  disabled={editingValues.is_leave}
-                                  style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
-                                />
-                              ) : (
-                                entry.entry
-                              )}
-                            </td>
-                            {stateColumns.map(st => {
-                              const key = st.toLowerCase();
-                              return (
-                                <td key={st}>
-                                  {isEditing ? (
-                                    <input 
-                                      type="number"
-                                      className="input-field"
-                                      value={editingValues[key]}
-                                      onChange={(e) => handleEditChange(key, parseInt(e.target.value) || 0)}
-                                      disabled={editingValues.is_leave}
-                                      style={{ width: '50px', padding: '0.25rem', textAlign: 'center' }}
-                                    />
-                                  ) : (
-                                    entry[key] || 0
-                                  )}
-                                </td>
-                              );
-                            })}
-                            <td style={{ textAlign: 'center' }}>
-                              {isEditing ? (
-                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                                  <button 
-                                    className="btn btn-primary"
-                                    onClick={() => saveEditedRow(entry.id)}
-                                    disabled={savingRow}
-                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                          <React.Fragment key={entry.id}>
+                            <tr style={entry.is_leave && !isEditing ? { opacity: 0.5, backgroundColor: 'rgba(239, 68, 68, 0.05)' } : {}}>
+                              <td>{entry.date}</td>
+                              <td>
+                                {isEditing ? (
+                                  <select 
+                                    className="input-field"
+                                    value={editingValues.is_leave ? 'leave' : 'active'}
+                                    onChange={(e) => {
+                                      const leaveVal = e.target.value === 'leave';
+                                      handleEditChange('is_leave', leaveVal);
+                                      if (leaveVal) {
+                                        handleEditChange('calls', 0);
+                                        handleEditChange('files', 0);
+                                        handleEditChange('entry', 0);
+                                        stateColumns.forEach(st => handleEditChange(st.toLowerCase(), 0));
+                                      }
+                                    }}
+                                    style={{ padding: '0.25rem', fontSize: '0.8rem', width: '90px' }}
                                   >
-                                    Save
+                                    <option value="active">ACTIVE</option>
+                                    <option value="leave">ON LEAVE</option>
+                                  </select>
+                                ) : (
+                                  entry.is_leave ? (
+                                    <span style={{ color: 'var(--error)', fontWeight: 'bold' }}>ON LEAVE</span>
+                                  ) : (
+                                    <span style={{ color: 'var(--primary)' }}>ACTIVE</span>
+                                  )
+                                )}
+                              </td>
+                              <td>
+                                {isEditing ? (
+                                  <input 
+                                    type="number"
+                                    className="input-field"
+                                    value={editingValues.calls}
+                                    onChange={(e) => handleEditChange('calls', parseInt(e.target.value) || 0)}
+                                    disabled={editingValues.is_leave}
+                                    style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
+                                  />
+                                ) : (
+                                  entry.calls
+                                )}
+                              </td>
+                              <td>
+                                {isEditing ? (
+                                  <input 
+                                    type="number"
+                                    className="input-field"
+                                    value={editingValues.files}
+                                    onChange={(e) => handleEditChange('files', parseInt(e.target.value) || 0)}
+                                    disabled={editingValues.is_leave}
+                                    style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
+                                  />
+                                ) : (
+                                  entry.files
+                                )}
+                              </td>
+                              <td>
+                                {isEditing ? (
+                                  <input 
+                                    type="number"
+                                    className="input-field"
+                                    value={editingValues.entry}
+                                    onChange={(e) => handleEditChange('entry', parseInt(e.target.value) || 0)}
+                                    disabled={editingValues.is_leave}
+                                    style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
+                                  />
+                                ) : (
+                                  entry.entry
+                                )}
+                              </td>
+                              {/* Audit metrics columns */}
+                              <td style={{ color: 'var(--secondary)', fontWeight: '500' }}>{entry.first_call_time || '-'}</td>
+                              <td style={{ color: 'var(--secondary)', fontWeight: '500' }}>{entry.last_call_time || '-'}</td>
+                              <td>
+                                {entry.gaps_count > 0 ? (
+                                  <button 
+                                    onClick={() => setExpandedRows(prev => ({ ...prev, [entry.id]: !prev[entry.id] }))}
+                                    className="btn btn-secondary" 
+                                    style={{ 
+                                      padding: '0.25rem 0.5rem', 
+                                      color: '#ef4444', 
+                                      borderColor: 'rgba(239, 68, 68, 0.3)', 
+                                      backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                                      fontSize: '0.75rem', 
+                                      display: 'inline-flex', 
+                                      gap: '0.25rem', 
+                                      alignItems: 'center' 
+                                    }}
+                                  >
+                                    {entry.gaps_count} Gaps
                                   </button>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>None</span>
+                                )}
+                              </td>
+                              <td style={{ color: '#f59e0b', fontWeight: entry.long_calls > 0 ? '600' : 'normal' }}>{entry.long_calls || 0}</td>
+                              <td>{formatDuration(entry.incoming_duration)}</td>
+                              <td>{formatDuration(entry.outgoing_duration)}</td>
+                              
+                              {stateColumns.map(st => {
+                                const key = st.toLowerCase();
+                                return (
+                                  <td key={st}>
+                                    {isEditing ? (
+                                      <input 
+                                        type="number"
+                                        className="input-field"
+                                        value={editingValues[key]}
+                                        onChange={(e) => handleEditChange(key, parseInt(e.target.value) || 0)}
+                                        disabled={editingValues.is_leave}
+                                        style={{ width: '50px', padding: '0.25rem', textAlign: 'center' }}
+                                      />
+                                    ) : (
+                                      entry[key] || 0
+                                    )}
+                                  </td>
+                                );
+                              })}
+                              <td style={{ textAlign: 'center' }}>
+                                {isEditing ? (
+                                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                    <button 
+                                      className="btn btn-primary"
+                                      onClick={() => saveEditedRow(entry.id)}
+                                      disabled={savingRow}
+                                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                                    >
+                                      Save
+                                    </button>
+                                    <button 
+                                      className="btn btn-secondary"
+                                      onClick={() => setEditingRowId(null)}
+                                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
                                   <button 
                                     className="btn btn-secondary"
-                                    onClick={() => setEditingRowId(null)}
+                                    onClick={() => startEditing(entry)}
                                     style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
                                   >
-                                    Cancel
+                                    Edit
                                   </button>
-                                </div>
-                              ) : (
-                                <button 
-                                  className="btn btn-secondary"
-                                  onClick={() => startEditing(entry)}
-                                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                                >
-                                  Edit
-                                </button>
-                              )}
-                            </td>
-                          </tr>
+                                )}
+                              </td>
+                            </tr>
+                            {expandedRows[entry.id] && entry.gap_details && (
+                              <tr style={{ backgroundColor: 'rgba(239, 68, 68, 0.02)' }}>
+                                <td colSpan={stateColumns.length + 12} style={{ padding: '1rem 1.5rem' }}>
+                                  <div style={{ borderLeft: '3px solid #ef4444', paddingLeft: '1rem' }}>
+                                    <h4 style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 600, marginBottom: '0.5rem' }}>
+                                      Gap Analysis Details ({entry.date})
+                                    </h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                      {entry.gap_details.split('; ').map((gapStr, gIdx) => (
+                                        <div key={gIdx} style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                          • {gapStr}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
                         );
                       })
                     )}
