@@ -536,11 +536,6 @@ const Performance = () => {
                   <ArrowUpRight size={16} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: 'var(--primary)' }} />
                 </div>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Total Entries</span>
-                  <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{totals.entry || 0}</h2>
-                  <ArrowUpRight size={16} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: 'var(--primary)' }} />
-                </div>
-                <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Last {new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</span>
                   <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{selectedAgentMonthly.prev}</h2>
                 </div>
@@ -580,7 +575,6 @@ const Performance = () => {
                       <th>Status</th>
                       <th>Calls</th>
                       <th>Files</th>
-                      <th>Entry</th>
                       <th>First Call</th>
                       <th>Last Call</th>
                       <th>Gaps</th>
@@ -659,20 +653,6 @@ const Performance = () => {
                                   />
                                 ) : (
                                   entry.files
-                                )}
-                              </td>
-                              <td>
-                                {isEditing ? (
-                                  <input 
-                                    type="number"
-                                    className="input-field"
-                                    value={editingValues.entry}
-                                    onChange={(e) => handleEditChange('entry', parseInt(e.target.value) || 0)}
-                                    disabled={editingValues.is_leave}
-                                    style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
-                                  />
-                                ) : (
-                                  entry.entry
                                 )}
                               </td>
                               {/* Audit metrics columns */}
