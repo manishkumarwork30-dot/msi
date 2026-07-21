@@ -3,11 +3,11 @@
 :root {
   --bg-dark: #ffffff;
   --bg-card: #f8fafc;
-  --primary: #1d4ed8;
-  --primary-hover: #1e40af;
-  --secondary: #0369a1;
-  --text-main: #0f172a;
-  --text-muted: #475569;
+  --primary: #000000;
+  --primary-hover: #050b1f;
+  --secondary: #0d212c;
+  --text-main: #000000;
+  --text-muted: #006aff;
   --border-color: #cbd5e1;
   --error: #dc2626;
   --glass-bg: #e2e8f0;
