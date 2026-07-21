@@ -385,9 +385,13 @@ const Performance = () => {
       if (curr.is_leave) {
         acc.leaves += 1;
       } else {
-        acc.calls += curr.calls;
-        acc.files += curr.files || 0;
-        acc.entry = (acc.entry || 0) + (curr.entry || 0);
+        acc.calls += curr.calls || 0;
+        
+        // Sum states if files is zero
+        const stateSum = stateColumns.reduce((s, col) => s + (curr[col.toLowerCase()] || 0), 0);
+        const computedFiles = curr.files > 0 ? curr.files : stateSum;
+        acc.files += computedFiles;
+        
         acc.longCalls += curr.long_calls || 0;
         acc.incomingDuration += curr.incoming_duration || 0;
         acc.outgoingDuration += curr.outgoing_duration || 0;
@@ -536,11 +540,11 @@ const Performance = () => {
                   <ArrowUpRight size={16} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: 'var(--primary)' }} />
                 </div>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Last {new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Previous Month Entry</span>
                   <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{selectedAgentMonthly.prev}</h2>
                 </div>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>First {new Date().toLocaleString('default', { month: 'long' })} Entry</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Current Month Entry</span>
                   <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{selectedAgentMonthly.curr}</h2>
                 </div>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
@@ -652,7 +656,9 @@ const Performance = () => {
                                     style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
                                   />
                                 ) : (
-                                  entry.files
+                                  entry.files > 0 
+                                    ? entry.files 
+                                    : stateColumns.reduce((s, col) => s + (entry[col.toLowerCase()] || 0), 0)
                                 )}
                               </td>
                               {/* Audit metrics columns */}
