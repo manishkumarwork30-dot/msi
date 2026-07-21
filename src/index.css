@@ -2,16 +2,16 @@
 
 :root {
   --bg-dark: #ffffff;
-  --bg-card: #f0f7ff;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --secondary: #0284c7;
-  --text-main: #1e3a8a;
-  --text-muted: #3b82f6;
-  --border-color: #bfdbfe;
-  --error: #ef4444;
-  --glass-bg: #e0f2fe;
-  --glass-border: #93c5fd;
+  --bg-card: #f8fafc;
+  --primary: #1d4ed8;
+  --primary-hover: #1e40af;
+  --secondary: #0369a1;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --border-color: #cbd5e1;
+  --error: #dc2626;
+  --glass-bg: #e2e8f0;
+  --glass-border: #94a3b8;
   --glass-blur: blur(10px);
 }
 
@@ -33,18 +33,16 @@ body {
 
 /* Glassmorphism Utilities */
 .glass-panel {
-  background: var(--bg-card);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 12px;
-  box-shadow: 0 4px 16px 0 rgba(37, 99, 235, 0.08);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
 }
 
 /* Typography */
 h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
-  color: var(--text-main);
+  color: #0f172a;
 }
 
 /* Buttons */
@@ -74,12 +72,12 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-secondary {
   background-color: #ffffff;
-  color: var(--text-main);
-  border: 1px solid var(--border-color);
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
 }
 
 .btn-secondary:hover {
-  background-color: var(--glass-bg);
+  background-color: #f1f5f9;
 }
 
 /* Inputs */
@@ -92,13 +90,14 @@ h1, h2, h3, h4, h5, h6 {
 
 .input-group label {
   font-size: 0.875rem;
-  color: var(--text-muted);
+  font-weight: 500;
+  color: #334155;
 }
 
 .input-field {
-  background-color: #ffffff;
-  border: 1px solid var(--border-color);
-  color: var(--text-main);
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e1;
+  color: #0f172a !important;
   padding: 0.75rem 1rem;
   border-radius: 6px;
   font-family: inherit;

@@ -174,10 +174,11 @@ const Performance = () => {
         } else if (filterType === 'range') {
           query = query.gte('date', startDate).lte('date', endDate);
         } else if (filterType === 'month') {
-          const year = selectedMonth.split('-')[0];
-          const month = selectedMonth.split('-')[1];
+          const year = parseInt(selectedMonth.split('-')[0], 10);
+          const month = parseInt(selectedMonth.split('-')[1], 10);
           const firstDay = `${selectedMonth}-01`;
-          const lastDay = `${selectedMonth}-${new Date(year, month, 0).getDate()}`;
+          const lastDayNum = String(new Date(year, month, 0).getDate()).padStart(2, '0');
+          const lastDay = `${selectedMonth}-${lastDayNum}`;
           query = query.gte('date', firstDay).lte('date', lastDay);
         }
 
@@ -234,10 +235,11 @@ const Performance = () => {
           start = startDate;
           end = endDate;
         } else if (filterType === 'month') {
-          const year = selectedMonth.split('-')[0];
-          const month = selectedMonth.split('-')[1];
+          const year = parseInt(selectedMonth.split('-')[0], 10);
+          const month = parseInt(selectedMonth.split('-')[1], 10);
           start = `${selectedMonth}-01`;
-          end = `${selectedMonth}-${new Date(year, month, 0).getDate()}`;
+          const lastDayNum = String(new Date(year, month, 0).getDate()).padStart(2, '0');
+          end = `${selectedMonth}-${lastDayNum}`;
         }
 
         // Fetch entries joined with agents and teams
@@ -444,7 +446,6 @@ const Performance = () => {
                 className="input-field" 
                 value={selectedAgent} 
                 onChange={(e) => setSelectedAgent(e.target.value)}
-                style={{ backgroundColor: '#1a1d24' }}
               >
                 <option value="">-- Choose Agent --</option>
                 {agents.map(ag => (
@@ -460,7 +461,6 @@ const Performance = () => {
               className="input-field" 
               value={filterType} 
               onChange={(e) => setFilterType(e.target.value)}
-              style={{ backgroundColor: '#1a1d24' }}
             >
               <option value="single">Single Date</option>
               <option value="range">Date Range</option>
