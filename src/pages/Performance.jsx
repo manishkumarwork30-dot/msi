@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { User, Users, ArrowUpRight, RefreshCw } from 'lucide-react';
 
-const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'NK', 'OTHERS'];
+const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'OTHERS'];
 
 const formatDuration = (seconds) => {
   if (isNaN(seconds) || seconds <= 0) return '0s';
@@ -104,7 +104,6 @@ const Performance = () => {
       rj: entry.rj || 0,
       up: entry.up || 0,
       br: entry.br || 0,
-      nk: entry.nk || 0,
       others: entry.others || 0
     });
   };
@@ -134,7 +133,6 @@ const Performance = () => {
           rj: editingValues.rj,
           up: editingValues.up,
           br: editingValues.br,
-          nk: editingValues.nk,
           others: editingValues.others
         })
         .eq('id', entryId);
@@ -328,7 +326,7 @@ const Performance = () => {
               outgoingDuration: 0,
               longCalls: 0,
               gapsCount: 0,
-              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0,
               prevMonthFiles: teamMonthlyTotals[teamName]?.prev || 0,
               currMonthFiles: teamMonthlyTotals[teamName]?.curr || 0,
               agents: {}
@@ -353,7 +351,7 @@ const Performance = () => {
               outgoingDuration: 0,
               longCalls: 0,
               gapsCount: 0,
-              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0,
               prevMonthFiles: agentMonthlyTotals[agentName]?.prev || 0,
               currMonthFiles: agentMonthlyTotals[agentName]?.curr || 0
             };
@@ -380,7 +378,7 @@ const Performance = () => {
               outgoingDuration: 0,
               longCalls: 0,
               gapsCount: 0,
-              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0,
               agents: {}
             };
           }
@@ -403,7 +401,7 @@ const Performance = () => {
               outgoingDuration: 0,
               longCalls: 0,
               gapsCount: 0,
-              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
             };
           }
           dateSummaryMap[dateKey].agents[agentName].calls += calls;
@@ -428,7 +426,7 @@ const Performance = () => {
               outgoingDuration: 0,
               longCalls: 0,
               gapsCount: 0,
-              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0,
               agents: {}
             };
           }
@@ -451,7 +449,7 @@ const Performance = () => {
               outgoingDuration: 0,
               longCalls: 0,
               gapsCount: 0,
-              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
             };
           }
           monthSummaryMap[monthKey].agents[agentName].calls += calls;
@@ -511,7 +509,7 @@ const Performance = () => {
       outgoingDuration: 0,
       longCalls: 0,
       gapsCount: 0,
-      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
+      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0,
       prevMonthFiles: 0,
       currMonthFiles: 0
     });
@@ -536,7 +534,7 @@ const Performance = () => {
       outgoingDuration: 0,
       longCalls: 0,
       gapsCount: 0,
-      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
+      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
     });
   }, [teamDateSummary]);
 
@@ -559,7 +557,7 @@ const Performance = () => {
       outgoingDuration: 0,
       longCalls: 0,
       gapsCount: 0,
-      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
+      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
     });
   }, [teamMonthSummary]);
 

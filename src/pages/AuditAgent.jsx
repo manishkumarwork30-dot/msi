@@ -432,7 +432,7 @@ const AuditAgent = () => {
             files: 0,
             entry: 0,
             is_leave: false,
-            pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
+            pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
           };
         }
       });

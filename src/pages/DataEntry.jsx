@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { FileSpreadsheet, Save, Clipboard, RefreshCw } from 'lucide-react';
 
-const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'NK', 'OTHERS'];
+const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'OTHERS'];
 
 const getMonthRanges = (dateStr) => {
   const date = new Date(dateStr);
@@ -62,7 +62,7 @@ const DataEntry = () => {
           files: 0, // Calculated dynamically
           entry: 0,
           is_leave: false,
-          pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
+          pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0,
           last_month_entry: 0,
           curr_month_entry: 0
         };
@@ -115,7 +115,7 @@ const DataEntry = () => {
             files: 0,
             entry: 0,
             is_leave: false,
-            pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
+            pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0,
             last_month_entry: monthly.last_month_entry,
             curr_month_entry: monthly.curr_month_entry
           };
@@ -139,7 +139,6 @@ const DataEntry = () => {
                 rj: item.rj || 0,
                 up: item.up || 0,
                 br: item.br || 0,
-                nk: item.nk || 0,
                 others: item.others || 0,
                 last_month_entry: monthly.last_month_entry,
                 curr_month_entry: monthly.curr_month_entry
@@ -300,7 +299,6 @@ const DataEntry = () => {
           rj: row.rj,
           up: row.up,
           br: row.br,
-          nk: row.nk,
           others: row.others
         };
       });

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Calendar, RefreshCw, Edit2, Check, X, Share2 } from 'lucide-react';
 
-const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'NK', 'OTHERS'];
+const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'OTHERS'];
 
 const getMonthRanges = (dateStr) => {
   const date = new Date(dateStr);
@@ -96,7 +96,6 @@ const Dashboard = () => {
           rj: entry.rj || 0,
           up: entry.up || 0,
           br: entry.br || 0,
-          nk: entry.nk || 0,
           others: entry.others || 0,
           id: entry.id || null,
           prevMonthFiles: monthly.last_month_entry || 0,
@@ -155,7 +154,7 @@ const Dashboard = () => {
       acc.entry += curr.entry || 0;
       
       return acc;
-    }, { calls: 0, files: 0, entry: 0, prevMonthFiles: 0, currMonthFiles: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0 });
+    }, { calls: 0, files: 0, entry: 0, prevMonthFiles: 0, currMonthFiles: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
   };
 
   // Grand Total calculation
@@ -175,7 +174,7 @@ const Dashboard = () => {
       acc.entry += curr.entry || 0;
       
       return acc;
-    }, { calls: 0, files: 0, entry: 0, prevMonthFiles: 0, currMonthFiles: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0 });
+    }, { calls: 0, files: 0, entry: 0, prevMonthFiles: 0, currMonthFiles: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0 });
   };
 
   const grandTotals = getGrandTotal();
@@ -226,10 +225,9 @@ const Dashboard = () => {
         const rj = parseInt(row.rj) || 0;
         const up = parseInt(row.up) || 0;
         const br = parseInt(row.br) || 0;
-        const nk = parseInt(row.nk) || 0;
         const others = parseInt(row.others) || 0;
 
-        const calculatedFiles = pb + hr + jk + hp + mp + rj + up + br + nk + others;
+        const calculatedFiles = pb + hr + jk + hp + mp + rj + up + br + others;
 
         const entryObj = {
           agent_id: row.agentId,
@@ -246,7 +244,6 @@ const Dashboard = () => {
           rj,
           up,
           br,
-          nk,
           others
         };
 
