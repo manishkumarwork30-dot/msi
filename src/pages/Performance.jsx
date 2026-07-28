@@ -305,7 +305,10 @@ const Performance = () => {
           
           let calls = entry.calls || 0;
           let files = entry.files || 0;
-          let entriesCount = entry.entry || 0;
+          let incomingDuration = entry.incoming_duration || 0;
+          let outgoingDuration = entry.outgoing_duration || 0;
+          let longCalls = entry.long_calls || 0;
+          let gapsCount = entry.gaps_count || 0;
           let stateSums = 0;
           const states = {};
           stateColumns.forEach(st => {
@@ -321,7 +324,10 @@ const Performance = () => {
               name: teamName,
               totalCalls: 0,
               totalFiles: 0,
-              totalEntry: 0,
+              incomingDuration: 0,
+              outgoingDuration: 0,
+              longCalls: 0,
+              gapsCount: 0,
               pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
               prevMonthFiles: teamMonthlyTotals[teamName]?.prev || 0,
               currMonthFiles: teamMonthlyTotals[teamName]?.curr || 0,
@@ -330,7 +336,10 @@ const Performance = () => {
           }
           summaryMap[teamName].totalCalls += calls;
           summaryMap[teamName].totalFiles += files;
-          summaryMap[teamName].totalEntry += entriesCount;
+          summaryMap[teamName].incomingDuration += incomingDuration;
+          summaryMap[teamName].outgoingDuration += outgoingDuration;
+          summaryMap[teamName].longCalls += longCalls;
+          summaryMap[teamName].gapsCount += gapsCount;
           stateColumns.forEach(st => {
             summaryMap[teamName][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -340,7 +349,10 @@ const Performance = () => {
               name: agentName,
               calls: 0,
               files: 0,
-              entry: 0,
+              incomingDuration: 0,
+              outgoingDuration: 0,
+              longCalls: 0,
+              gapsCount: 0,
               pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
               prevMonthFiles: agentMonthlyTotals[agentName]?.prev || 0,
               currMonthFiles: agentMonthlyTotals[agentName]?.curr || 0
@@ -348,7 +360,10 @@ const Performance = () => {
           }
           summaryMap[teamName].agents[agentName].calls += calls;
           summaryMap[teamName].agents[agentName].files += files;
-          summaryMap[teamName].agents[agentName].entry += entriesCount;
+          summaryMap[teamName].agents[agentName].incomingDuration += incomingDuration;
+          summaryMap[teamName].agents[agentName].outgoingDuration += outgoingDuration;
+          summaryMap[teamName].agents[agentName].longCalls += longCalls;
+          summaryMap[teamName].agents[agentName].gapsCount += gapsCount;
           stateColumns.forEach(st => {
             summaryMap[teamName].agents[agentName][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -361,14 +376,20 @@ const Performance = () => {
               teamName: teamName,
               calls: 0,
               files: 0,
-              entry: 0,
+              incomingDuration: 0,
+              outgoingDuration: 0,
+              longCalls: 0,
+              gapsCount: 0,
               pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
               agents: {}
             };
           }
           dateSummaryMap[dateKey].calls += calls;
           dateSummaryMap[dateKey].files += files;
-          dateSummaryMap[dateKey].entry += entriesCount;
+          dateSummaryMap[dateKey].incomingDuration += incomingDuration;
+          dateSummaryMap[dateKey].outgoingDuration += outgoingDuration;
+          dateSummaryMap[dateKey].longCalls += longCalls;
+          dateSummaryMap[dateKey].gapsCount += gapsCount;
           stateColumns.forEach(st => {
             dateSummaryMap[dateKey][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -378,13 +399,19 @@ const Performance = () => {
               name: agentName,
               calls: 0,
               files: 0,
-              entry: 0,
+              incomingDuration: 0,
+              outgoingDuration: 0,
+              longCalls: 0,
+              gapsCount: 0,
               pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
             };
           }
           dateSummaryMap[dateKey].agents[agentName].calls += calls;
           dateSummaryMap[dateKey].agents[agentName].files += files;
-          dateSummaryMap[dateKey].agents[agentName].entry += entriesCount;
+          dateSummaryMap[dateKey].agents[agentName].incomingDuration += incomingDuration;
+          dateSummaryMap[dateKey].agents[agentName].outgoingDuration += outgoingDuration;
+          dateSummaryMap[dateKey].agents[agentName].longCalls += longCalls;
+          dateSummaryMap[dateKey].agents[agentName].gapsCount += gapsCount;
           stateColumns.forEach(st => {
             dateSummaryMap[dateKey].agents[agentName][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -397,14 +424,20 @@ const Performance = () => {
               teamName: teamName,
               calls: 0,
               files: 0,
-              entry: 0,
+              incomingDuration: 0,
+              outgoingDuration: 0,
+              longCalls: 0,
+              gapsCount: 0,
               pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
               agents: {}
             };
           }
           monthSummaryMap[monthKey].calls += calls;
           monthSummaryMap[monthKey].files += files;
-          monthSummaryMap[monthKey].entry += entriesCount;
+          monthSummaryMap[monthKey].incomingDuration += incomingDuration;
+          monthSummaryMap[monthKey].outgoingDuration += outgoingDuration;
+          monthSummaryMap[monthKey].longCalls += longCalls;
+          monthSummaryMap[monthKey].gapsCount += gapsCount;
           stateColumns.forEach(st => {
             monthSummaryMap[monthKey][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -414,13 +447,19 @@ const Performance = () => {
               name: agentName,
               calls: 0,
               files: 0,
-              entry: 0,
+              incomingDuration: 0,
+              outgoingDuration: 0,
+              longCalls: 0,
+              gapsCount: 0,
               pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
             };
           }
           monthSummaryMap[monthKey].agents[agentName].calls += calls;
           monthSummaryMap[monthKey].agents[agentName].files += files;
-          monthSummaryMap[monthKey].agents[agentName].entry += entriesCount;
+          monthSummaryMap[monthKey].agents[agentName].incomingDuration += incomingDuration;
+          monthSummaryMap[monthKey].agents[agentName].outgoingDuration += outgoingDuration;
+          monthSummaryMap[monthKey].agents[agentName].longCalls += longCalls;
+          monthSummaryMap[monthKey].agents[agentName].gapsCount += gapsCount;
           stateColumns.forEach(st => {
             monthSummaryMap[monthKey].agents[agentName][st.toLowerCase()] += states[st.toLowerCase()];
           });
@@ -455,7 +494,10 @@ const Performance = () => {
     return teamSummary.reduce((acc, curr) => {
       acc.totalCalls += curr.totalCalls || 0;
       acc.totalFiles += curr.totalFiles || 0;
-      acc.totalEntry += curr.totalEntry || 0;
+      acc.incomingDuration += curr.incomingDuration || 0;
+      acc.outgoingDuration += curr.outgoingDuration || 0;
+      acc.longCalls += curr.longCalls || 0;
+      acc.gapsCount += curr.gapsCount || 0;
       stateColumns.forEach(st => {
         acc[st.toLowerCase()] += curr[st.toLowerCase()] || 0;
       });
@@ -465,7 +507,10 @@ const Performance = () => {
     }, {
       totalCalls: 0,
       totalFiles: 0,
-      totalEntry: 0,
+      incomingDuration: 0,
+      outgoingDuration: 0,
+      longCalls: 0,
+      gapsCount: 0,
       pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
       prevMonthFiles: 0,
       currMonthFiles: 0
@@ -476,7 +521,10 @@ const Performance = () => {
     return teamDateSummary.reduce((acc, curr) => {
       acc.calls += curr.calls || 0;
       acc.files += curr.files || 0;
-      acc.entry += curr.entry || 0;
+      acc.incomingDuration += curr.incomingDuration || 0;
+      acc.outgoingDuration += curr.outgoingDuration || 0;
+      acc.longCalls += curr.longCalls || 0;
+      acc.gapsCount += curr.gapsCount || 0;
       stateColumns.forEach(st => {
         acc[st.toLowerCase()] += curr[st.toLowerCase()] || 0;
       });
@@ -484,7 +532,10 @@ const Performance = () => {
     }, {
       calls: 0,
       files: 0,
-      entry: 0,
+      incomingDuration: 0,
+      outgoingDuration: 0,
+      longCalls: 0,
+      gapsCount: 0,
       pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
     });
   }, [teamDateSummary]);
@@ -493,7 +544,10 @@ const Performance = () => {
     return teamMonthSummary.reduce((acc, curr) => {
       acc.calls += curr.calls || 0;
       acc.files += curr.files || 0;
-      acc.entry += curr.entry || 0;
+      acc.incomingDuration += curr.incomingDuration || 0;
+      acc.outgoingDuration += curr.outgoingDuration || 0;
+      acc.longCalls += curr.longCalls || 0;
+      acc.gapsCount += curr.gapsCount || 0;
       stateColumns.forEach(st => {
         acc[st.toLowerCase()] += curr[st.toLowerCase()] || 0;
       });
@@ -501,7 +555,10 @@ const Performance = () => {
     }, {
       calls: 0,
       files: 0,
-      entry: 0,
+      incomingDuration: 0,
+      outgoingDuration: 0,
+      longCalls: 0,
+      gapsCount: 0,
       pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
     });
   }, [teamMonthSummary]);
@@ -935,16 +992,19 @@ const Performance = () => {
                     <th>Team (Agency)</th>
                     <th>Total Calls</th>
                     <th>Total Files</th>
-                    <th>Total Entry</th>
+                    <th>Incoming Duration</th>
+                    <th>Outgoing Duration</th>
+                    <th>Long Calls</th>
+                    <th>Gaps</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
-                    <th>Last {new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</th>
-                    <th>First {new Date().toLocaleString('default', { month: 'long' })} Entry</th>
+                    <th>Start Month</th>
+                    <th>Last Month</th>
                   </tr>
                 </thead>
                 <tbody>
                   {teamSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={stateColumns.length + 6} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                      <td colSpan={stateColumns.length + 9} style={{ textAlign: 'center', padding: '1.5rem' }}>
                         No team records found for the selected timeframe.
                       </td>
                     </tr>
@@ -964,7 +1024,10 @@ const Performance = () => {
                             </td>
                             <td>{team.totalCalls.toLocaleString()}</td>
                             <td>{team.totalFiles.toLocaleString()}</td>
-                            <td>{team.totalEntry.toLocaleString()}</td>
+                            <td>{formatDuration(team.incomingDuration)}</td>
+                            <td>{formatDuration(team.outgoingDuration)}</td>
+                            <td>{team.longCalls.toLocaleString()}</td>
+                            <td>{team.gapsCount.toLocaleString()}</td>
                             {stateColumns.map(st => (
                               <td key={st}>{team[st.toLowerCase()].toLocaleString()}</td>
                             ))}
@@ -976,7 +1039,10 @@ const Performance = () => {
                               <td style={{ paddingLeft: '2rem', color: 'var(--text-muted)' }}>— {agent.name}</td>
                               <td>{agent.calls.toLocaleString()}</td>
                               <td>{agent.files.toLocaleString()}</td>
-                              <td>{agent.entry.toLocaleString()}</td>
+                              <td>{formatDuration(agent.incomingDuration)}</td>
+                              <td>{formatDuration(agent.outgoingDuration)}</td>
+                              <td>{agent.longCalls.toLocaleString()}</td>
+                              <td>{agent.gapsCount.toLocaleString()}</td>
                               {stateColumns.map(st => (
                                 <td key={st} style={{ color: 'var(--text-muted)' }}>{agent[st.toLowerCase()].toLocaleString()}</td>
                               ))}
@@ -994,7 +1060,10 @@ const Performance = () => {
                     <td>TOTAL (ALL TEAMS)</td>
                     <td>{teamSummaryTotals.totalCalls.toLocaleString()}</td>
                     <td>{teamSummaryTotals.totalFiles.toLocaleString()}</td>
-                    <td>{teamSummaryTotals.totalEntry.toLocaleString()}</td>
+                    <td>{formatDuration(teamSummaryTotals.incomingDuration)}</td>
+                    <td>{formatDuration(teamSummaryTotals.outgoingDuration)}</td>
+                    <td>{teamSummaryTotals.longCalls.toLocaleString()}</td>
+                    <td>{teamSummaryTotals.gapsCount.toLocaleString()}</td>
                     {stateColumns.map(st => (
                       <td key={st}>{teamSummaryTotals[st.toLowerCase()].toLocaleString()}</td>
                     ))}
@@ -1013,14 +1082,17 @@ const Performance = () => {
                     <th>Team (Agency)</th>
                     <th>Calls</th>
                     <th>Files</th>
-                    <th>Entry</th>
+                    <th>Incoming Duration</th>
+                    <th>Outgoing Duration</th>
+                    <th>Long Calls</th>
+                    <th>Gaps</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {teamDateSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={stateColumns.length + 5} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                      <td colSpan={stateColumns.length + 8} style={{ textAlign: 'center', padding: '1.5rem' }}>
                         No records found.
                       </td>
                     </tr>
@@ -1041,7 +1113,10 @@ const Performance = () => {
                             </td>
                             <td>{row.calls.toLocaleString()}</td>
                             <td>{row.files.toLocaleString()}</td>
-                            <td>{row.entry.toLocaleString()}</td>
+                            <td>{formatDuration(row.incomingDuration)}</td>
+                            <td>{formatDuration(row.outgoingDuration)}</td>
+                            <td>{row.longCalls.toLocaleString()}</td>
+                            <td>{row.gapsCount.toLocaleString()}</td>
                             {stateColumns.map(st => (
                               <td key={st}>{row[st.toLowerCase()].toLocaleString()}</td>
                             ))}
@@ -1052,7 +1127,10 @@ const Performance = () => {
                               <td style={{ paddingLeft: '2rem', color: 'var(--text-muted)' }}>— {agent.name}</td>
                               <td>{agent.calls.toLocaleString()}</td>
                               <td>{agent.files.toLocaleString()}</td>
-                              <td>{agent.entry.toLocaleString()}</td>
+                              <td>{formatDuration(agent.incomingDuration)}</td>
+                              <td>{formatDuration(agent.outgoingDuration)}</td>
+                              <td>{agent.longCalls.toLocaleString()}</td>
+                              <td>{agent.gapsCount.toLocaleString()}</td>
                               {stateColumns.map(st => (
                                 <td key={st} style={{ color: 'var(--text-muted)' }}>{agent[st.toLowerCase()].toLocaleString()}</td>
                               ))}
@@ -1068,7 +1146,10 @@ const Performance = () => {
                     <td colSpan={2}>TOTAL (ALL TEAMS)</td>
                     <td>{teamDateSummaryTotals.calls.toLocaleString()}</td>
                     <td>{teamDateSummaryTotals.files.toLocaleString()}</td>
-                    <td>{teamDateSummaryTotals.entry.toLocaleString()}</td>
+                    <td>{formatDuration(teamDateSummaryTotals.incomingDuration)}</td>
+                    <td>{formatDuration(teamDateSummaryTotals.outgoingDuration)}</td>
+                    <td>{teamDateSummaryTotals.longCalls.toLocaleString()}</td>
+                    <td>{teamDateSummaryTotals.gapsCount.toLocaleString()}</td>
                     {stateColumns.map(st => (
                       <td key={st}>{teamDateSummaryTotals[st.toLowerCase()].toLocaleString()}</td>
                     ))}
@@ -1085,14 +1166,17 @@ const Performance = () => {
                     <th>Team (Agency)</th>
                     <th>Calls</th>
                     <th>Files</th>
-                    <th>Entry</th>
+                    <th>Incoming Duration</th>
+                    <th>Outgoing Duration</th>
+                    <th>Long Calls</th>
+                    <th>Gaps</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {teamMonthSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={stateColumns.length + 5} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                      <td colSpan={stateColumns.length + 8} style={{ textAlign: 'center', padding: '1.5rem' }}>
                         No records found.
                       </td>
                     </tr>
@@ -1113,7 +1197,10 @@ const Performance = () => {
                             </td>
                             <td>{row.calls.toLocaleString()}</td>
                             <td>{row.files.toLocaleString()}</td>
-                            <td>{row.entry.toLocaleString()}</td>
+                            <td>{formatDuration(row.incomingDuration)}</td>
+                            <td>{formatDuration(row.outgoingDuration)}</td>
+                            <td>{row.longCalls.toLocaleString()}</td>
+                            <td>{row.gapsCount.toLocaleString()}</td>
                             {stateColumns.map(st => (
                               <td key={st}>{row[st.toLowerCase()].toLocaleString()}</td>
                             ))}
@@ -1124,7 +1211,10 @@ const Performance = () => {
                               <td style={{ paddingLeft: '2rem', color: 'var(--text-muted)' }}>— {agent.name}</td>
                               <td>{agent.calls.toLocaleString()}</td>
                               <td>{agent.files.toLocaleString()}</td>
-                              <td>{agent.entry.toLocaleString()}</td>
+                              <td>{formatDuration(agent.incomingDuration)}</td>
+                              <td>{formatDuration(agent.outgoingDuration)}</td>
+                              <td>{agent.longCalls.toLocaleString()}</td>
+                              <td>{agent.gapsCount.toLocaleString()}</td>
                               {stateColumns.map(st => (
                                 <td key={st} style={{ color: 'var(--text-muted)' }}>{agent[st.toLowerCase()].toLocaleString()}</td>
                               ))}
@@ -1140,7 +1230,10 @@ const Performance = () => {
                     <td colSpan={2}>TOTAL (ALL TEAMS)</td>
                     <td>{teamMonthSummaryTotals.calls.toLocaleString()}</td>
                     <td>{teamMonthSummaryTotals.files.toLocaleString()}</td>
-                    <td>{teamMonthSummaryTotals.entry.toLocaleString()}</td>
+                    <td>{formatDuration(teamMonthSummaryTotals.incomingDuration)}</td>
+                    <td>{formatDuration(teamMonthSummaryTotals.outgoingDuration)}</td>
+                    <td>{teamMonthSummaryTotals.longCalls.toLocaleString()}</td>
+                    <td>{teamMonthSummaryTotals.gapsCount.toLocaleString()}</td>
                     {stateColumns.map(st => (
                       <td key={st}>{teamMonthSummaryTotals[st.toLowerCase()].toLocaleString()}</td>
                     ))}
