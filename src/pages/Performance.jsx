@@ -450,6 +450,62 @@ const Performance = () => {
     fetchTeamSummary();
   }, [activeTab, filterType, selectedDate, startDate, endDate, selectedMonth, triggerRefresh]);
 
+  // Team performance totals
+  const teamSummaryTotals = useMemo(() => {
+    return teamSummary.reduce((acc, curr) => {
+      acc.totalCalls += curr.totalCalls || 0;
+      acc.totalFiles += curr.totalFiles || 0;
+      acc.totalEntry += curr.totalEntry || 0;
+      stateColumns.forEach(st => {
+        acc[st.toLowerCase()] += curr[st.toLowerCase()] || 0;
+      });
+      acc.prevMonthFiles += curr.prevMonthFiles || 0;
+      acc.currMonthFiles += curr.currMonthFiles || 0;
+      return acc;
+    }, {
+      totalCalls: 0,
+      totalFiles: 0,
+      totalEntry: 0,
+      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
+      prevMonthFiles: 0,
+      currMonthFiles: 0
+    });
+  }, [teamSummary]);
+
+  const teamDateSummaryTotals = useMemo(() => {
+    return teamDateSummary.reduce((acc, curr) => {
+      acc.calls += curr.calls || 0;
+      acc.files += curr.files || 0;
+      acc.entry += curr.entry || 0;
+      stateColumns.forEach(st => {
+        acc[st.toLowerCase()] += curr[st.toLowerCase()] || 0;
+      });
+      return acc;
+    }, {
+      calls: 0,
+      files: 0,
+      entry: 0,
+      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
+    });
+  }, [teamDateSummary]);
+
+  const teamMonthSummaryTotals = useMemo(() => {
+    return teamMonthSummary.reduce((acc, curr) => {
+      acc.calls += curr.calls || 0;
+      acc.files += curr.files || 0;
+      acc.entry += curr.entry || 0;
+      stateColumns.forEach(st => {
+        acc[st.toLowerCase()] += curr[st.toLowerCase()] || 0;
+      });
+      return acc;
+    }, {
+      calls: 0,
+      files: 0,
+      entry: 0,
+      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
+    });
+  }, [teamMonthSummary]);
+
   // Aggregate stats
   const totals = agentEntries.reduce(
     (acc, curr) => {
@@ -933,6 +989,19 @@ const Performance = () => {
                     })
                   )}
                 </tbody>
+                <tfoot>
+                  <tr style={{ fontWeight: 'bold', borderTop: '2px solid var(--border-color)', backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
+                    <td>TOTAL (ALL TEAMS)</td>
+                    <td>{teamSummaryTotals.totalCalls.toLocaleString()}</td>
+                    <td>{teamSummaryTotals.totalFiles.toLocaleString()}</td>
+                    <td>{teamSummaryTotals.totalEntry.toLocaleString()}</td>
+                    {stateColumns.map(st => (
+                      <td key={st}>{teamSummaryTotals[st.toLowerCase()].toLocaleString()}</td>
+                    ))}
+                    <td style={{ textAlign: 'center' }}>{teamSummaryTotals.prevMonthFiles.toLocaleString()}</td>
+                    <td style={{ textAlign: 'center' }}>{teamSummaryTotals.currMonthFiles.toLocaleString()}</td>
+                  </tr>
+                </tfoot>
               </table>
             )}
 
@@ -994,6 +1063,17 @@ const Performance = () => {
                     })
                   )}
                 </tbody>
+                <tfoot>
+                  <tr style={{ fontWeight: 'bold', borderTop: '2px solid var(--border-color)', backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
+                    <td colSpan={2}>TOTAL (ALL TEAMS)</td>
+                    <td>{teamDateSummaryTotals.calls.toLocaleString()}</td>
+                    <td>{teamDateSummaryTotals.files.toLocaleString()}</td>
+                    <td>{teamDateSummaryTotals.entry.toLocaleString()}</td>
+                    {stateColumns.map(st => (
+                      <td key={st}>{teamDateSummaryTotals[st.toLowerCase()].toLocaleString()}</td>
+                    ))}
+                  </tr>
+                </tfoot>
               </table>
             )}
 
@@ -1055,6 +1135,17 @@ const Performance = () => {
                     })
                   )}
                 </tbody>
+                <tfoot>
+                  <tr style={{ fontWeight: 'bold', borderTop: '2px solid var(--border-color)', backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
+                    <td colSpan={2}>TOTAL (ALL TEAMS)</td>
+                    <td>{teamMonthSummaryTotals.calls.toLocaleString()}</td>
+                    <td>{teamMonthSummaryTotals.files.toLocaleString()}</td>
+                    <td>{teamMonthSummaryTotals.entry.toLocaleString()}</td>
+                    {stateColumns.map(st => (
+                      <td key={st}>{teamMonthSummaryTotals[st.toLowerCase()].toLocaleString()}</td>
+                    ))}
+                  </tr>
+                </tfoot>
               </table>
             )}
           </div>

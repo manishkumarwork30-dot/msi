@@ -86,6 +86,8 @@ const AuditAgent = () => {
   const [sortField, setSortField] = useState('');
   const [sortOrder, setSortOrder] = useState('asc'); // 'asc' | 'desc'
   const [expandedAgents, setExpandedAgents] = useState({});
+  const [auditActiveTab, setAuditActiveTab] = useState('agent'); // 'agent' | 'team' | 'logs'
+  const [teamViewType, setTeamViewType] = useState('summary'); // 'summary' | 'date'
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -554,6 +556,137 @@ const AuditAgent = () => {
     return Object.values(performanceMap);
   }, [rawData]);
 
+  // Team Audits Summaries
+  const teamAuditSummary = useMemo(() => {
+    if (rawData.length === 0) return [];
+    const teamMap = {};
+    
+    agentPerformance.forEach(ap => {
+      const tName = ap.team_name || 'No Team';
+      if (!teamMap[tName]) {
+        teamMap[tName] = {
+          teamName: tName,
+          totalCalls: 0,
+          incomingReceived: 0,
+          outgoingCalls: 0,
+          longCalls: 0,
+          totalDurationIn: 0,
+          totalDurationOut: 0,
+          gapsCount: 0,
+          agents: {}
+        };
+      }
+      
+      const t = teamMap[tName];
+      t.totalCalls += ap.totalCalls || 0;
+      t.incomingReceived += ap.incomingReceived || 0;
+      t.outgoingCalls += ap.outgoingCalls || 0;
+      t.longCalls += ap.longCalls || 0;
+      t.totalDurationIn += ap.totalDurationIn || 0;
+      t.totalDurationOut += ap.totalDurationOut || 0;
+      t.gapsCount += ap.gaps ? ap.gaps.length : 0;
+      
+      t.agents[ap.agent_name] = {
+        agentName: ap.agent_name,
+        totalCalls: ap.totalCalls || 0,
+        incomingReceived: ap.incomingReceived || 0,
+        outgoingCalls: ap.outgoingCalls || 0,
+        longCalls: ap.longCalls || 0,
+        totalDurationIn: ap.totalDurationIn || 0,
+        totalDurationOut: ap.totalDurationOut || 0,
+        gapsCount: ap.gaps ? ap.gaps.length : 0
+      };
+    });
+    
+    return Object.values(teamMap).sort((a, b) => a.teamName.localeCompare(b.teamName));
+  }, [agentPerformance, rawData]);
+
+  const teamDateWiseAudits = useMemo(() => {
+    if (dateWiseAgentCalls.length === 0) return [];
+    
+    const dateTeamMap = {};
+    
+    dateWiseAgentCalls.forEach(item => {
+      const cleanExcelName = item.agent_name.trim().toLowerCase().replace(/\s*\(.*?\)\s*/g, '');
+      const teamName = agentTeamMap[cleanExcelName] || 'No Team';
+      const dateStr = item.date;
+      
+      const key = `${dateStr}_${teamName}`;
+      if (!dateTeamMap[key]) {
+        dateTeamMap[key] = {
+          date: dateStr,
+          teamName: teamName,
+          totalCalls: 0,
+          incomingDuration: 0,
+          outgoingDuration: 0,
+          longCalls: 0,
+          gapsCount: 0,
+          agents: {}
+        };
+      }
+      
+      const dt = dateTeamMap[key];
+      dt.totalCalls += item.calls || 0;
+      dt.incomingDuration += item.incoming_duration || 0;
+      dt.outgoingDuration += item.outgoing_duration || 0;
+      dt.longCalls += item.long_calls || 0;
+      dt.gapsCount += item.gaps_count || 0;
+      
+      dt.agents[item.agent_name] = {
+        agentName: item.agent_name,
+        totalCalls: item.calls || 0,
+        incomingDuration: item.incoming_duration || 0,
+        outgoingDuration: item.outgoing_duration || 0,
+        longCalls: item.long_calls || 0,
+        gapsCount: item.gaps_count || 0
+      };
+    });
+    
+    return Object.values(dateTeamMap).sort((a, b) => {
+      if (a.date !== b.date) return b.date.localeCompare(a.date);
+      return a.teamName.localeCompare(b.teamName);
+    });
+  }, [dateWiseAgentCalls, agentTeamMap]);
+
+  const teamAuditSummaryTotals = useMemo(() => {
+    return teamAuditSummary.reduce((acc, curr) => {
+      acc.totalCalls += curr.totalCalls || 0;
+      acc.incomingReceived += curr.incomingReceived || 0;
+      acc.outgoingCalls += curr.outgoingCalls || 0;
+      acc.longCalls += curr.longCalls || 0;
+      acc.totalDurationIn += curr.totalDurationIn || 0;
+      acc.totalDurationOut += curr.totalDurationOut || 0;
+      acc.gapsCount += curr.gapsCount || 0;
+      return acc;
+    }, {
+      totalCalls: 0,
+      incomingReceived: 0,
+      outgoingCalls: 0,
+      longCalls: 0,
+      totalDurationIn: 0,
+      totalDurationOut: 0,
+      gapsCount: 0
+    });
+  }, [teamAuditSummary]);
+
+  const teamDateWiseAuditTotals = useMemo(() => {
+    return teamDateWiseAudits.reduce((acc, curr) => {
+      acc.totalCalls += curr.totalCalls || 0;
+      acc.incomingDuration += curr.incomingDuration || 0;
+      acc.outgoingDuration += curr.outgoingDuration || 0;
+      acc.longCalls += curr.longCalls || 0;
+      acc.gapsCount += curr.gapsCount || 0;
+      return acc;
+    }, {
+      totalCalls: 0,
+      incomingDuration: 0,
+      outgoingDuration: 0,
+      longCalls: 0,
+      gapsCount: 0
+    });
+  }, [teamDateWiseAudits]);
+
+
   // Unique filter dropdown values
   const agentsList = useMemo(() => {
     const list = new Set(rawData.map(r => (r.agent_name || '').toString().trim() || 'Unknown Agent'));
@@ -660,6 +793,39 @@ const AuditAgent = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Cleaned Logs');
     XLSX.writeFile(wb, `Cleaned_Call_Logs_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const exportTeamAuditSummary = () => {
+    if (teamAuditSummary.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(teamAuditSummary.map(t => ({
+      'Team Name': t.teamName,
+      'Total Calls': t.totalCalls,
+      'Incoming Calls Received': t.incomingReceived,
+      'Outgoing Calls': t.outgoingCalls,
+      'Long Calls (> 120s)': t.longCalls,
+      'Total Incoming Duration': formatDuration(t.totalDurationIn),
+      'Total Outgoing Duration': formatDuration(t.totalDurationOut),
+      'Gaps Count (> 10m)': t.gapsCount
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Team Summary');
+    XLSX.writeFile(wb, `Team_Audit_Summary_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const exportTeamDateWiseAudits = () => {
+    if (teamDateWiseAudits.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(teamDateWiseAudits.map(t => ({
+      'Date': t.date,
+      'Team Name': t.teamName,
+      'Total Calls': t.totalCalls,
+      'Incoming Duration': formatDuration(t.incomingDuration),
+      'Outgoing Duration': formatDuration(t.outgoingDuration),
+      'Long Calls': t.longCalls,
+      'Gaps Count': t.gapsCount
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Team Date-wise');
+    XLSX.writeFile(wb, `Team_DateWise_Audit_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   return (
@@ -838,260 +1004,456 @@ const AuditAgent = () => {
             )}
           </div>
 
-          {/* SECTION 1: AGENT-WISE SUMMARY */}
-          <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-              <div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Agent Performance Summary</h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Consolidated metrics per agent parsed from the spreadsheet.</p>
-              </div>
-              <button onClick={exportPerformanceSummary} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Download size={16} />
-                Export Summary Excel
-              </button>
-            </div>
+          {/* Navigation Tabs for Audits */}
+          <div style={{ display: 'flex', gap: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1rem' }}>
+            <button 
+              className={`btn ${auditActiveTab === 'agent' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setAuditActiveTab('agent')}
+              style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
+            >
+              Agent Audits
+            </button>
+            <button 
+              className={`btn ${auditActiveTab === 'team' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setAuditActiveTab('team')}
+              style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
+            >
+              Team Audits
+            </button>
+            <button 
+              className={`btn ${auditActiveTab === 'logs' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setAuditActiveTab('logs')}
+              style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
+            >
+              Detailed Call Logs
+            </button>
+          </div>
 
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem' }}>Agent Name</th>
-                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem' }}>Team</th>
-                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Total Calls</th>
-                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Incoming Calls (Received)</th>
-                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Calls</th>
-                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Long Calls (&gt; 120s)</th>
-                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Incoming Duration</th>
-                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Duration</th>
-                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>First Call Start</th>
-                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Last Call Start</th>
-                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Gaps (&gt; 10m)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {agentPerformance.map((perf, index) => (
-                    <React.Fragment key={index}>
-                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', backgroundColor: expandedAgents[perf.agent_name] ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', fontWeight: 500 }}>{perf.agent_name}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>{perf.team_name}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{perf.totalCalls}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--primary)' }}>{perf.incomingReceived}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{perf.outgoingCalls}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: '#f59e0b', fontWeight: perf.longCalls > 0 ? '600' : 'normal' }}>
-                          {perf.longCalls}
-                        </td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(perf.totalDurationIn)}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(perf.totalDurationOut)}</td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--secondary)', fontWeight: '500' }}>
-                          {perf.firstCallTime ? perf.firstCallTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
-                        </td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--secondary)', fontWeight: '500' }}>
-                          {perf.lastCallTime ? perf.lastCallTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
-                        </td>
-                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>
-                          {perf.gaps.length > 0 ? (
-                            <button 
-                              onClick={() => setExpandedAgents(prev => ({ ...prev, [perf.agent_name]: !prev[perf.agent_name] }))}
-                              className="btn btn-secondary" 
-                              style={{ 
-                                padding: '0.25rem 0.5rem', 
-                                color: '#ef4444', 
-                                borderColor: 'rgba(239, 68, 68, 0.3)', 
-                                backgroundColor: 'rgba(239, 68, 68, 0.05)',
-                                fontSize: '0.75rem', 
-                                display: 'inline-flex', 
-                                gap: '0.25rem', 
-                                alignItems: 'center' 
-                              }}
-                            >
-                              {perf.gaps.length} Gaps
-                            </button>
-                          ) : (
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>None</span>
-                          )}
-                        </td>
-                      </tr>
-                      {expandedAgents[perf.agent_name] && perf.gaps.length > 0 && (
-                        <tr style={{ backgroundColor: 'rgba(239, 68, 68, 0.02)' }}>
-                          <td colSpan={11} style={{ padding: '1rem 1.5rem' }}>
-                            <div style={{ borderLeft: '3px solid #ef4444', paddingLeft: '1rem' }}>
-                              <h4 style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 600, marginBottom: '0.5rem' }}>
-                                Gap Analysis Details ({perf.agent_name})
-                              </h4>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                {perf.gaps.map((gap, gIdx) => (
-                                  <div key={gIdx} style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                    • Gap of <strong style={{ color: 'var(--text-main)' }}>{formatDuration(gap.duration)}</strong> between call to <strong style={{ color: 'var(--text-main)' }}>{gap.prevSrc || 'Unknown'}</strong> (ended at {gap.from.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}) and call to <strong style={{ color: 'var(--text-main)' }}>{gap.currSrc || 'Unknown'}</strong> (started at {gap.to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
+          {/* SECTION 1: AGENT-WISE SUMMARY */}
+          {auditActiveTab === 'agent' && (
+            <div className="glass-panel" style={{ padding: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Agent Performance Summary</h2>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Consolidated metrics per agent parsed from the spreadsheet.</p>
+                </div>
+                <button onClick={exportPerformanceSummary} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Download size={16} />
+                  Export Summary Excel
+                </button>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem' }}>Agent Name</th>
+                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem' }}>Team</th>
+                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Total Calls</th>
+                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Incoming Calls (Received)</th>
+                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Calls</th>
+                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Long Calls (&gt; 120s)</th>
+                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Incoming Duration</th>
+                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Duration</th>
+                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>First Call Start</th>
+                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Last Call Start</th>
+                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Gaps (&gt; 10m)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {agentPerformance.map((perf, index) => (
+                      <React.Fragment key={index}>
+                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', backgroundColor: expandedAgents[perf.agent_name] ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                          <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', fontWeight: 500 }}>{perf.agent_name}</td>
+                          <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>{perf.team_name}</td>
+                          <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{perf.totalCalls}</td>
+                          <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--primary)' }}>{perf.incomingReceived}</td>
+                          <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{perf.outgoingCalls}</td>
+                          <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: '#f59e0b', fontWeight: perf.longCalls > 0 ? '600' : 'normal' }}>
+                            {perf.longCalls}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(perf.totalDurationIn)}</td>
+                          <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(perf.totalDurationOut)}</td>
+                          <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--secondary)', fontWeight: '500' }}>
+                            {perf.firstCallTime ? perf.firstCallTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: 'var(--secondary)', fontWeight: '500' }}>
+                            {perf.lastCallTime ? perf.lastCallTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>
+                            {perf.gaps.length > 0 ? (
+                              <button 
+                                onClick={() => setExpandedAgents(prev => ({ ...prev, [perf.agent_name]: !prev[perf.agent_name] }))}
+                                className="btn btn-secondary" 
+                                style={{ 
+                                  padding: '0.25rem 0.5rem', 
+                                  color: '#ef4444', 
+                                  borderColor: 'rgba(239, 68, 68, 0.3)', 
+                                  backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                                  fontSize: '0.75rem', 
+                                  display: 'inline-flex', 
+                                  gap: '0.25rem', 
+                                  alignItems: 'center' 
+                                }}
+                              >
+                                {perf.gaps.length} Gaps
+                              </button>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>None</span>
+                            )}
                           </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* SECTION 2: CLEANED DETAILED LOGS */}
-          <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-              <div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Cleaned Call Logs</h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Displaying only the required columns. Columns not needed have been filtered out.</p>
-              </div>
-              <button onClick={exportCleanedLogs} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Download size={16} />
-                Export Cleaned Excel
-              </button>
-            </div>
-
-            {/* Filters Row */}
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem', alignItems: 'center' }}>
-              {/* Search */}
-              <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
-                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  placeholder="Search Src or Agent..." 
-                  value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                  style={{ width: '100%', paddingLeft: '2.5rem', marginBottom: 0 }}
-                />
-              </div>
-
-              {/* Agent Filter */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Agent:</span>
-                <select 
-                  className="input-field" 
-                  value={selectedAgent} 
-                  onChange={(e) => { setSelectedAgent(e.target.value); setCurrentPage(1); }}
-                  style={{ marginBottom: 0, padding: '0.4rem 2rem 0.4rem 0.75rem' }}
-                >
-                  {agentsList.map(a => (
-                    <option key={a} value={a}>{a}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Department Filter */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Dept:</span>
-                <select 
-                  className="input-field" 
-                  value={selectedDepartment} 
-                  onChange={(e) => { setSelectedDepartment(e.target.value); setCurrentPage(1); }}
-                  style={{ marginBottom: 0, padding: '0.4rem 2rem 0.4rem 0.75rem' }}
-                >
-                  {departmentsList.map(d => (
-                    <option key={d} value={d === '' ? 'Empty' : d}>{d === '' ? 'Empty' : d}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Call Status Filter */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Status:</span>
-                <select 
-                  className="input-field" 
-                  value={selectedStatus} 
-                  onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
-                  style={{ marginBottom: 0, padding: '0.4rem 2rem 0.4rem 0.75rem' }}
-                >
-                  {statusesList.map(s => (
-                    <option key={s} value={s === '' ? 'Empty' : s}>{s === '' ? 'Empty' : s}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Detailed Table */}
-            <div style={{ overflowX: 'auto', marginBottom: '1rem' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    {REQUIRED_COLUMNS.map(col => (
-                      <th 
-                        key={col} 
-                        onClick={() => handleSort(col)}
-                        style={{ 
-                          padding: '0.75rem 1rem', 
-                          color: 'var(--text-muted)', 
-                          fontWeight: 600, 
-                          fontSize: '0.85rem',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                          {col}
-                          <ArrowUpDown size={12} />
-                        </div>
-                      </th>
+                        {expandedAgents[perf.agent_name] && perf.gaps.length > 0 && (
+                          <tr style={{ backgroundColor: 'rgba(239, 68, 68, 0.02)' }}>
+                            <td colSpan={11} style={{ padding: '1rem 1.5rem' }}>
+                              <div style={{ borderLeft: '3px solid #ef4444', paddingLeft: '1rem' }}>
+                                <h4 style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 600, marginBottom: '0.5rem' }}>
+                                  Gap Analysis Details ({perf.agent_name})
+                                </h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                  {perf.gaps.map((gap, gIdx) => (
+                                    <div key={gIdx} style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                      • Gap of <strong style={{ color: 'var(--text-main)' }}>{formatDuration(gap.duration)}</strong> between call to <strong style={{ color: 'var(--text-main)' }}>{gap.prevSrc || 'Unknown'}</strong> (ended at {gap.from.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}) and call to <strong style={{ color: 'var(--text-main)' }}>{gap.currSrc || 'Unknown'}</strong> (started at {gap.to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedAndPaginatedLogs.map((row, index) => (
-                    <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>{row.Src}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>
-                        {row.call_start_time_in ? new Date(row.call_start_time_in).toLocaleString() : ''}
-                      </td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>{row.duration_in}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>{row.duration_out}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>{row.call_status_out}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>{row.outgoing_picked}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>{row.calllevel_department}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', fontWeight: 500 }}>{row.agent_name}</td>
-                    </tr>
-                  ))}
-                  {sortedAndPaginatedLogs.length === 0 && (
-                    <tr>
-                      <td colSpan={REQUIRED_COLUMNS.length} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        No records found matching current filters.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             </div>
+          )}
 
-            {/* Pagination Controls */}
-            {filteredLogs.length > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', flexWrap: 'wrap', gap: '1rem' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Showing {Math.min(filteredLogs.length, (currentPage - 1) * pageSize + 1)} to {Math.min(filteredLogs.length, currentPage * pageSize)} of {filteredLogs.length} logs
-                </span>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {/* TEAM AUDITS SUMMARY */}
+          {auditActiveTab === 'team' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button 
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                    disabled={currentPage === 1}
-                    className="btn btn-secondary"
-                    style={{ padding: '0.35rem 0.75rem' }}
+                    className={`btn ${teamViewType === 'summary' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setTeamViewType('summary')}
+                    style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
                   >
-                    <ChevronLeft size={16} />
+                    Summary View
                   </button>
-                  <span style={{ fontSize: '0.85rem' }}>Page {currentPage} of {totalPages}</span>
                   <button 
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                    disabled={currentPage === totalPages}
-                    className="btn btn-secondary"
-                    style={{ padding: '0.35rem 0.75rem' }}
+                    className={`btn ${teamViewType === 'date' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setTeamViewType('date')}
+                    style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
                   >
-                    <ChevronRight size={16} />
+                    Date-wise Breakdown
                   </button>
                 </div>
+                <button 
+                  onClick={teamViewType === 'summary' ? exportTeamAuditSummary : exportTeamDateWiseAudits} 
+                  className="btn btn-primary" 
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  <Download size={16} />
+                  Export {teamViewType === 'summary' ? 'Summary' : 'Date-wise'} Excel
+                </button>
               </div>
-            )}
 
-          </div>
+              {teamViewType === 'summary' && (
+                <div className="glass-panel" style={{ padding: '1.5rem', overflowX: 'auto' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem' }}>Team Audit Summary</h3>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem' }}>Team Name</th>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Total Calls</th>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Incoming Calls (Received)</th>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Calls</th>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Long Calls (&gt; 120s)</th>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Incoming Duration</th>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Duration</th>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Gaps (&gt; 10m)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teamAuditSummary.map((t, idx) => {
+                        const rowKey = `audit_team_summary_${t.teamName}`;
+                        const isExpanded = !!expandedAgents[rowKey];
+                        return (
+                          <React.Fragment key={idx}>
+                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                              <td 
+                                style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                onClick={() => setExpandedAgents(prev => ({ ...prev, [rowKey]: !prev[rowKey] }))}
+                              >
+                                <span style={{ transform: isExpanded ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', fontSize: '0.8rem' }}>▶</span>
+                                {t.teamName}
+                              </td>
+                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{t.totalCalls.toLocaleString()}</td>
+                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{t.incomingReceived.toLocaleString()}</td>
+                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{t.outgoingCalls.toLocaleString()}</td>
+                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: '#f59e0b' }}>{t.longCalls.toLocaleString()}</td>
+                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(t.totalDurationIn)}</td>
+                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(t.totalDurationOut)}</td>
+                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{t.gapsCount.toLocaleString()}</td>
+                            </tr>
+                            {isExpanded && Object.values(t.agents || {}).map(agent => (
+                              <tr key={agent.agentName} style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid rgba(255,255,255,0.01)' }}>
+                                <td style={{ padding: '0.75rem 1rem 0.75rem 2.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>— {agent.agentName}</td>
+                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.totalCalls.toLocaleString()}</td>
+                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.incomingReceived.toLocaleString()}</td>
+                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.outgoingCalls.toLocaleString()}</td>
+                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.longCalls.toLocaleString()}</td>
+                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{formatDuration(agent.totalDurationIn)}</td>
+                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{formatDuration(agent.totalDurationOut)}</td>
+                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.gapsCount.toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ fontWeight: 'bold', borderTop: '2px solid var(--border-color)', backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
+                        <td style={{ padding: '0.75rem 1rem' }}>TOTAL (ALL TEAMS)</td>
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{teamAuditSummaryTotals.totalCalls.toLocaleString()}</td>
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{teamAuditSummaryTotals.incomingReceived.toLocaleString()}</td>
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{teamAuditSummaryTotals.outgoingCalls.toLocaleString()}</td>
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#f59e0b' }}>{teamAuditSummaryTotals.longCalls.toLocaleString()}</td>
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{formatDuration(teamAuditSummaryTotals.totalDurationIn)}</td>
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{formatDuration(teamAuditSummaryTotals.totalDurationOut)}</td>
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{teamAuditSummaryTotals.gapsCount.toLocaleString()}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+
+              {teamViewType === 'date' && (
+                <div className="glass-panel" style={{ padding: '1.5rem', overflowX: 'auto' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem' }}>Team Date-wise Audit</h3>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem' }}>Date</th>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem' }}>Team Name</th>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Total Calls</th>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Incoming Duration</th>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Duration</th>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Long Calls</th>
+                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Gaps Count</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teamDateWiseAudits.map((row, idx) => {
+                        const rowKey = `audit_team_date_${row.date}_${row.teamName}`;
+                        const isExpanded = !!expandedAgents[rowKey];
+                        return (
+                          <React.Fragment key={idx}>
+                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>{row.date}</td>
+                              <td 
+                                style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                onClick={() => setExpandedAgents(prev => ({ ...prev, [rowKey]: !prev[rowKey] }))}
+                              >
+                                <span style={{ transform: isExpanded ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', fontSize: '0.8rem' }}>▶</span>
+                                {row.teamName}
+                              </td>
+                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{row.totalCalls.toLocaleString()}</td>
+                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(row.incomingDuration)}</td>
+                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(row.outgoingDuration)}</td>
+                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: '#f59e0b' }}>{row.longCalls.toLocaleString()}</td>
+                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{row.gapsCount.toLocaleString()}</td>
+                            </tr>
+                            {isExpanded && Object.values(row.agents || {}).map(agent => (
+                              <tr key={agent.agentName} style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid rgba(255,255,255,0.01)' }}>
+                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{row.date}</td>
+                                <td style={{ padding: '0.75rem 1rem 0.75rem 2.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>— {agent.agentName}</td>
+                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.totalCalls.toLocaleString()}</td>
+                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{formatDuration(agent.incomingDuration)}</td>
+                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{formatDuration(agent.outgoingDuration)}</td>
+                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.longCalls.toLocaleString()}</td>
+                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.gapsCount.toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ fontWeight: 'bold', borderTop: '2px solid var(--border-color)', backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
+                        <td colSpan={2} style={{ padding: '0.75rem 1rem' }}>TOTAL (ALL TEAMS)</td>
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{teamDateWiseAuditTotals.totalCalls.toLocaleString()}</td>
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{formatDuration(teamDateWiseAuditTotals.incomingDuration)}</td>
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{formatDuration(teamDateWiseAuditTotals.outgoingDuration)}</td>
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#f59e0b' }}>{teamDateWiseAuditTotals.longCalls.toLocaleString()}</td>
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{teamDateWiseAuditTotals.gapsCount.toLocaleString()}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SECTION 2: CLEANED DETAILED LOGS */}
+          {auditActiveTab === 'logs' && (
+            <div className="glass-panel" style={{ padding: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Cleaned Call Logs</h2>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Displaying only the required columns. Columns not needed have been filtered out.</p>
+                </div>
+                <button onClick={exportCleanedLogs} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Download size={16} />
+                  Export Cleaned Excel
+                </button>
+              </div>
+
+              {/* Filters Row */}
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem', alignItems: 'center' }}>
+                {/* Search */}
+                <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
+                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    placeholder="Search Src or Agent..." 
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                    style={{ width: '100%', paddingLeft: '2.5rem', marginBottom: 0 }}
+                  />
+                </div>
+
+                {/* Agent Filter */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Agent:</span>
+                  <select 
+                    className="input-field" 
+                    value={selectedAgent} 
+                    onChange={(e) => { setSelectedAgent(e.target.value); setCurrentPage(1); }}
+                    style={{ marginBottom: 0, padding: '0.4rem 2rem 0.4rem 0.75rem' }}
+                  >
+                    {agentsList.map(a => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Department Filter */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Dept:</span>
+                  <select 
+                    className="input-field" 
+                    value={selectedDepartment} 
+                    onChange={(e) => { setSelectedDepartment(e.target.value); setCurrentPage(1); }}
+                    style={{ marginBottom: 0, padding: '0.4rem 2rem 0.4rem 0.75rem' }}
+                  >
+                    {departmentsList.map(d => (
+                      <option key={d} value={d === '' ? 'Empty' : d}>{d === '' ? 'Empty' : d}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Call Status Filter */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Status:</span>
+                  <select 
+                    className="input-field" 
+                    value={selectedStatus} 
+                    onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
+                    style={{ marginBottom: 0, padding: '0.4rem 2rem 0.4rem 0.75rem' }}
+                  >
+                    {statusesList.map(s => (
+                      <option key={s} value={s === '' ? 'Empty' : s}>{s === '' ? 'Empty' : s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Detailed Table */}
+              <div style={{ overflowX: 'auto', marginBottom: '1rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      {REQUIRED_COLUMNS.map(col => (
+                        <th 
+                          key={col} 
+                          onClick={() => handleSort(col)}
+                          style={{ 
+                            padding: '0.75rem 1rem', 
+                            color: 'var(--text-muted)', 
+                            fontWeight: 600, 
+                            fontSize: '0.85rem',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            {col}
+                            <ArrowUpDown size={12} />
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedAndPaginatedLogs.map((row, index) => (
+                      <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>{row.Src}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>
+                          {row.call_start_time_in ? new Date(row.call_start_time_in).toLocaleString() : ''}
+                        </td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>{row.duration_in}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>{row.duration_out}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>{row.call_status_out}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>{row.outgoing_picked}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>{row.calllevel_department}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', fontWeight: 500 }}>{row.agent_name}</td>
+                      </tr>
+                    ))}
+                    {sortedAndPaginatedLogs.length === 0 && (
+                      <tr>
+                        <td colSpan={REQUIRED_COLUMNS.length} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                          No records found matching current filters.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              {filteredLogs.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', flexWrap: 'wrap', gap: '1rem' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    Showing {Math.min(filteredLogs.length, (currentPage - 1) * pageSize + 1)} to {Math.min(filteredLogs.length, currentPage * pageSize)} of {filteredLogs.length} logs
+                  </span>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                      disabled={currentPage === 1}
+                      className="btn btn-secondary"
+                      style={{ padding: '0.35rem 0.75rem' }}
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <span style={{ fontSize: '0.85rem' }}>Page {currentPage} of {totalPages}</span>
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                      disabled={currentPage === totalPages}
+                      className="btn btn-secondary"
+                      style={{ padding: '0.35rem 0.75rem' }}
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
 
         </div>
       )}
