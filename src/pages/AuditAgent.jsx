@@ -1170,7 +1170,6 @@ const AuditAgent = () => {
                         <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Incoming Calls (Received)</th>
                         <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Calls</th>
                         <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Long Calls (&gt; 120s)</th>
-                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Incoming Duration</th>
                         <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Duration</th>
                         <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Gaps (&gt; 10m)</th>
                       </tr>
@@ -1193,7 +1192,6 @@ const AuditAgent = () => {
                               <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{t.incomingReceived.toLocaleString()}</td>
                               <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{t.outgoingCalls.toLocaleString()}</td>
                               <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: '#f59e0b' }}>{t.longCalls.toLocaleString()}</td>
-                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(t.totalDurationIn)}</td>
                               <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(t.totalDurationOut)}</td>
                               <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{t.gapsCount.toLocaleString()}</td>
                             </tr>
@@ -1204,7 +1202,6 @@ const AuditAgent = () => {
                                 <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.incomingReceived.toLocaleString()}</td>
                                 <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.outgoingCalls.toLocaleString()}</td>
                                 <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.longCalls.toLocaleString()}</td>
-                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{formatDuration(agent.totalDurationIn)}</td>
                                 <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{formatDuration(agent.totalDurationOut)}</td>
                                 <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.gapsCount.toLocaleString()}</td>
                               </tr>
@@ -1220,7 +1217,6 @@ const AuditAgent = () => {
                         <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{teamAuditSummaryTotals.incomingReceived.toLocaleString()}</td>
                         <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{teamAuditSummaryTotals.outgoingCalls.toLocaleString()}</td>
                         <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#f59e0b' }}>{teamAuditSummaryTotals.longCalls.toLocaleString()}</td>
-                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{formatDuration(teamAuditSummaryTotals.totalDurationIn)}</td>
                         <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{formatDuration(teamAuditSummaryTotals.totalDurationOut)}</td>
                         <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{teamAuditSummaryTotals.gapsCount.toLocaleString()}</td>
                       </tr>
@@ -1238,7 +1234,6 @@ const AuditAgent = () => {
                         <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem' }}>Date</th>
                         <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem' }}>Team Name</th>
                         <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Total Calls</th>
-                        <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Incoming Duration</th>
                         <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Outgoing Duration</th>
                         <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Long Calls</th>
                         <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.85rem', textAlign: 'center' }}>Gaps Count</th>
@@ -1260,7 +1255,6 @@ const AuditAgent = () => {
                                 {row.teamName}
                               </td>
                               <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{row.totalCalls.toLocaleString()}</td>
-                              <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(row.incomingDuration)}</td>
                               <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{formatDuration(row.outgoingDuration)}</td>
                               <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center', color: '#f59e0b' }}>{row.longCalls.toLocaleString()}</td>
                               <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>{row.gapsCount.toLocaleString()}</td>
@@ -1270,7 +1264,6 @@ const AuditAgent = () => {
                                 <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{row.date}</td>
                                 <td style={{ padding: '0.75rem 1rem 0.75rem 2.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>— {agent.agentName}</td>
                                 <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.totalCalls.toLocaleString()}</td>
-                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{formatDuration(agent.incomingDuration)}</td>
                                 <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{formatDuration(agent.outgoingDuration)}</td>
                                 <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.longCalls.toLocaleString()}</td>
                                 <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', textAlign: 'center', color: 'var(--text-muted)' }}>{agent.gapsCount.toLocaleString()}</td>
@@ -1284,7 +1277,6 @@ const AuditAgent = () => {
                       <tr style={{ fontWeight: 'bold', borderTop: '2px solid var(--border-color)', backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
                         <td colSpan={2} style={{ padding: '0.75rem 1rem' }}>TOTAL (ALL TEAMS)</td>
                         <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{teamDateWiseAuditTotals.totalCalls.toLocaleString()}</td>
-                        <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{formatDuration(teamDateWiseAuditTotals.incomingDuration)}</td>
                         <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{formatDuration(teamDateWiseAuditTotals.outgoingDuration)}</td>
                         <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#f59e0b' }}>{teamDateWiseAuditTotals.longCalls.toLocaleString()}</td>
                         <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{teamDateWiseAuditTotals.gapsCount.toLocaleString()}</td>

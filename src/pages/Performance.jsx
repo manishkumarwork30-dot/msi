@@ -992,7 +992,6 @@ const Performance = () => {
                     <th>Team (Agency)</th>
                     <th>Total Calls</th>
                     <th>Total Files</th>
-                    <th>Incoming Duration</th>
                     <th>Outgoing Duration</th>
                     <th>Long Calls</th>
                     <th>Gaps</th>
@@ -1004,7 +1003,7 @@ const Performance = () => {
                 <tbody>
                   {teamSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={stateColumns.length + 9} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                      <td colSpan={stateColumns.length + 8} style={{ textAlign: 'center', padding: '1.5rem' }}>
                         No team records found for the selected timeframe.
                       </td>
                     </tr>
@@ -1024,7 +1023,6 @@ const Performance = () => {
                             </td>
                             <td>{team.totalCalls.toLocaleString()}</td>
                             <td>{team.totalFiles.toLocaleString()}</td>
-                            <td>{formatDuration(team.incomingDuration)}</td>
                             <td>{formatDuration(team.outgoingDuration)}</td>
                             <td>{team.longCalls.toLocaleString()}</td>
                             <td>{team.gapsCount.toLocaleString()}</td>
@@ -1039,7 +1037,6 @@ const Performance = () => {
                               <td style={{ paddingLeft: '2rem', color: 'var(--text-muted)' }}>— {agent.name}</td>
                               <td>{agent.calls.toLocaleString()}</td>
                               <td>{agent.files.toLocaleString()}</td>
-                              <td>{formatDuration(agent.incomingDuration)}</td>
                               <td>{formatDuration(agent.outgoingDuration)}</td>
                               <td>{agent.longCalls.toLocaleString()}</td>
                               <td>{agent.gapsCount.toLocaleString()}</td>
@@ -1060,7 +1057,6 @@ const Performance = () => {
                     <td>TOTAL (ALL TEAMS)</td>
                     <td>{teamSummaryTotals.totalCalls.toLocaleString()}</td>
                     <td>{teamSummaryTotals.totalFiles.toLocaleString()}</td>
-                    <td>{formatDuration(teamSummaryTotals.incomingDuration)}</td>
                     <td>{formatDuration(teamSummaryTotals.outgoingDuration)}</td>
                     <td>{teamSummaryTotals.longCalls.toLocaleString()}</td>
                     <td>{teamSummaryTotals.gapsCount.toLocaleString()}</td>
@@ -1082,7 +1078,6 @@ const Performance = () => {
                     <th>Team (Agency)</th>
                     <th>Calls</th>
                     <th>Files</th>
-                    <th>Incoming Duration</th>
                     <th>Outgoing Duration</th>
                     <th>Long Calls</th>
                     <th>Gaps</th>
@@ -1092,7 +1087,7 @@ const Performance = () => {
                 <tbody>
                   {teamDateSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={stateColumns.length + 8} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                      <td colSpan={stateColumns.length + 7} style={{ textAlign: 'center', padding: '1.5rem' }}>
                         No records found.
                       </td>
                     </tr>
@@ -1113,7 +1108,6 @@ const Performance = () => {
                             </td>
                             <td>{row.calls.toLocaleString()}</td>
                             <td>{row.files.toLocaleString()}</td>
-                            <td>{formatDuration(row.incomingDuration)}</td>
                             <td>{formatDuration(row.outgoingDuration)}</td>
                             <td>{row.longCalls.toLocaleString()}</td>
                             <td>{row.gapsCount.toLocaleString()}</td>
@@ -1127,7 +1121,6 @@ const Performance = () => {
                               <td style={{ paddingLeft: '2rem', color: 'var(--text-muted)' }}>— {agent.name}</td>
                               <td>{agent.calls.toLocaleString()}</td>
                               <td>{agent.files.toLocaleString()}</td>
-                              <td>{formatDuration(agent.incomingDuration)}</td>
                               <td>{formatDuration(agent.outgoingDuration)}</td>
                               <td>{agent.longCalls.toLocaleString()}</td>
                               <td>{agent.gapsCount.toLocaleString()}</td>
@@ -1146,7 +1139,6 @@ const Performance = () => {
                     <td colSpan={2}>TOTAL (ALL TEAMS)</td>
                     <td>{teamDateSummaryTotals.calls.toLocaleString()}</td>
                     <td>{teamDateSummaryTotals.files.toLocaleString()}</td>
-                    <td>{formatDuration(teamDateSummaryTotals.incomingDuration)}</td>
                     <td>{formatDuration(teamDateSummaryTotals.outgoingDuration)}</td>
                     <td>{teamDateSummaryTotals.longCalls.toLocaleString()}</td>
                     <td>{teamDateSummaryTotals.gapsCount.toLocaleString()}</td>
@@ -1166,7 +1158,6 @@ const Performance = () => {
                     <th>Team (Agency)</th>
                     <th>Calls</th>
                     <th>Files</th>
-                    <th>Incoming Duration</th>
                     <th>Outgoing Duration</th>
                     <th>Long Calls</th>
                     <th>Gaps</th>
@@ -1176,7 +1167,7 @@ const Performance = () => {
                 <tbody>
                   {teamMonthSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={stateColumns.length + 8} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                      <td colSpan={stateColumns.length + 7} style={{ textAlign: 'center', padding: '1.5rem' }}>
                         No records found.
                       </td>
                     </tr>
@@ -1197,7 +1188,6 @@ const Performance = () => {
                             </td>
                             <td>{row.calls.toLocaleString()}</td>
                             <td>{row.files.toLocaleString()}</td>
-                            <td>{formatDuration(row.incomingDuration)}</td>
                             <td>{formatDuration(row.outgoingDuration)}</td>
                             <td>{row.longCalls.toLocaleString()}</td>
                             <td>{row.gapsCount.toLocaleString()}</td>
@@ -1211,7 +1201,6 @@ const Performance = () => {
                               <td style={{ paddingLeft: '2rem', color: 'var(--text-muted)' }}>— {agent.name}</td>
                               <td>{agent.calls.toLocaleString()}</td>
                               <td>{agent.files.toLocaleString()}</td>
-                              <td>{formatDuration(agent.incomingDuration)}</td>
                               <td>{formatDuration(agent.outgoingDuration)}</td>
                               <td>{agent.longCalls.toLocaleString()}</td>
                               <td>{agent.gapsCount.toLocaleString()}</td>
@@ -1230,7 +1219,6 @@ const Performance = () => {
                     <td colSpan={2}>TOTAL (ALL TEAMS)</td>
                     <td>{teamMonthSummaryTotals.calls.toLocaleString()}</td>
                     <td>{teamMonthSummaryTotals.files.toLocaleString()}</td>
-                    <td>{formatDuration(teamMonthSummaryTotals.incomingDuration)}</td>
                     <td>{formatDuration(teamMonthSummaryTotals.outgoingDuration)}</td>
                     <td>{teamMonthSummaryTotals.longCalls.toLocaleString()}</td>
                     <td>{teamMonthSummaryTotals.gapsCount.toLocaleString()}</td>
