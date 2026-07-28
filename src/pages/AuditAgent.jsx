@@ -314,14 +314,7 @@ const AuditAgent = () => {
         const cleanExcelName = item.agent_name.trim().toLowerCase().replace(/\s*\(.*?\)\s*/g, '');
         let agentId = agentMap[cleanExcelName];
         
-        if (!agentId) {
-          const foundKey = Object.keys(agentMap).find(key => 
-            key.includes(cleanExcelName) || cleanExcelName.includes(key)
-          );
-          if (foundKey) {
-            agentId = agentMap[foundKey];
-          }
-        }
+        // Exact match of clean Excel name with clean DB name is required
 
         if (agentId) {
           const key = `${agentId}_${item.date}`;
@@ -437,7 +430,7 @@ const AuditAgent = () => {
             files: 0,
             entry: 0,
             is_leave: false,
-            pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
+            pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
           };
         }
       });

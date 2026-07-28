@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { User, Users, ArrowUpRight, RefreshCw } from 'lucide-react';
 
-const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'OTHERS'];
+const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'NK', 'OTHERS'];
 
 const formatDuration = (seconds) => {
   if (isNaN(seconds) || seconds <= 0) return '0s';
@@ -85,6 +85,7 @@ const Performance = () => {
   const [triggerRefresh, setTriggerRefresh] = useState(false);
   const [selectedAgentMonthly, setSelectedAgentMonthly] = useState({ prev: 0, curr: 0 });
   const [expandedRows, setExpandedRows] = useState({});
+  const [expandedTeamRows, setExpandedTeamRows] = useState({});
 
 
   // Inline editing functions
@@ -103,6 +104,7 @@ const Performance = () => {
       rj: entry.rj || 0,
       up: entry.up || 0,
       br: entry.br || 0,
+      nk: entry.nk || 0,
       others: entry.others || 0
     });
   };
@@ -132,6 +134,7 @@ const Performance = () => {
           rj: editingValues.rj,
           up: editingValues.up,
           br: editingValues.br,
+          nk: editingValues.nk,
           others: editingValues.others
         })
         .eq('id', entryId);
@@ -276,11 +279,17 @@ const Performance = () => {
         if (monthlyErr) throw monthlyErr;
 
         const teamMonthlyTotals = {};
+        const agentMonthlyTotals = {};
         (monthlyData || []).forEach(m => {
           const tName = m.agents?.teams?.name || 'No Team';
+          const aName = m.agents?.name || 'Unknown Agent';
           if (!teamMonthlyTotals[tName]) teamMonthlyTotals[tName] = { prev: 0, curr: 0 };
           teamMonthlyTotals[tName].prev += m.last_month_entry || 0;
           teamMonthlyTotals[tName].curr += m.curr_month_entry || 0;
+
+          if (!agentMonthlyTotals[aName]) agentMonthlyTotals[aName] = { prev: 0, curr: 0 };
+          agentMonthlyTotals[aName].prev += m.last_month_entry || 0;
+          agentMonthlyTotals[aName].curr += m.curr_month_entry || 0;
         });
 
         // Group by Team Name
@@ -290,6 +299,7 @@ const Performance = () => {
 
         data.forEach(entry => {
           const teamName = entry.agents?.teams?.name || 'No Team';
+          const agentName = entry.agents?.name || 'Unknown Agent';
           const entryDate = entry.date;
           const entryMonth = entryDate.substring(0, 7); // YYYY-MM
           
@@ -312,9 +322,10 @@ const Performance = () => {
               totalCalls: 0,
               totalFiles: 0,
               totalEntry: 0,
-              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0,
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
               prevMonthFiles: teamMonthlyTotals[teamName]?.prev || 0,
-              currMonthFiles: teamMonthlyTotals[teamName]?.curr || 0
+              currMonthFiles: teamMonthlyTotals[teamName]?.curr || 0,
+              agents: {}
             };
           }
           summaryMap[teamName].totalCalls += calls;
@@ -322,6 +333,24 @@ const Performance = () => {
           summaryMap[teamName].totalEntry += entriesCount;
           stateColumns.forEach(st => {
             summaryMap[teamName][st.toLowerCase()] += states[st.toLowerCase()];
+          });
+
+          if (!summaryMap[teamName].agents[agentName]) {
+            summaryMap[teamName].agents[agentName] = {
+              name: agentName,
+              calls: 0,
+              files: 0,
+              entry: 0,
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
+              prevMonthFiles: agentMonthlyTotals[agentName]?.prev || 0,
+              currMonthFiles: agentMonthlyTotals[agentName]?.curr || 0
+            };
+          }
+          summaryMap[teamName].agents[agentName].calls += calls;
+          summaryMap[teamName].agents[agentName].files += files;
+          summaryMap[teamName].agents[agentName].entry += entriesCount;
+          stateColumns.forEach(st => {
+            summaryMap[teamName].agents[agentName][st.toLowerCase()] += states[st.toLowerCase()];
           });
 
           // 2. Date Summary Map
@@ -333,7 +362,8 @@ const Performance = () => {
               calls: 0,
               files: 0,
               entry: 0,
-              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
+              agents: {}
             };
           }
           dateSummaryMap[dateKey].calls += calls;
@@ -341,6 +371,22 @@ const Performance = () => {
           dateSummaryMap[dateKey].entry += entriesCount;
           stateColumns.forEach(st => {
             dateSummaryMap[dateKey][st.toLowerCase()] += states[st.toLowerCase()];
+          });
+
+          if (!dateSummaryMap[dateKey].agents[agentName]) {
+            dateSummaryMap[dateKey].agents[agentName] = {
+              name: agentName,
+              calls: 0,
+              files: 0,
+              entry: 0,
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
+            };
+          }
+          dateSummaryMap[dateKey].agents[agentName].calls += calls;
+          dateSummaryMap[dateKey].agents[agentName].files += files;
+          dateSummaryMap[dateKey].agents[agentName].entry += entriesCount;
+          stateColumns.forEach(st => {
+            dateSummaryMap[dateKey].agents[agentName][st.toLowerCase()] += states[st.toLowerCase()];
           });
 
           // 3. Month Summary Map
@@ -352,7 +398,8 @@ const Performance = () => {
               calls: 0,
               files: 0,
               entry: 0,
-              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0,
+              agents: {}
             };
           }
           monthSummaryMap[monthKey].calls += calls;
@@ -360,6 +407,22 @@ const Performance = () => {
           monthSummaryMap[monthKey].entry += entriesCount;
           stateColumns.forEach(st => {
             monthSummaryMap[monthKey][st.toLowerCase()] += states[st.toLowerCase()];
+          });
+
+          if (!monthSummaryMap[monthKey].agents[agentName]) {
+            monthSummaryMap[monthKey].agents[agentName] = {
+              name: agentName,
+              calls: 0,
+              files: 0,
+              entry: 0,
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, nk: 0, others: 0
+            };
+          }
+          monthSummaryMap[monthKey].agents[agentName].calls += calls;
+          monthSummaryMap[monthKey].agents[agentName].files += files;
+          monthSummaryMap[monthKey].agents[agentName].entry += entriesCount;
+          stateColumns.forEach(st => {
+            monthSummaryMap[monthKey].agents[agentName][st.toLowerCase()] += states[st.toLowerCase()];
           });
         });
 
@@ -825,24 +888,49 @@ const Performance = () => {
                 <tbody>
                   {teamSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={stateColumns.length + 3} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                      <td colSpan={stateColumns.length + 6} style={{ textAlign: 'center', padding: '1.5rem' }}>
                         No team records found for the selected timeframe.
                       </td>
                     </tr>
                   ) : (
-                    teamSummary.map(team => (
-                      <tr key={team.name}>
-                        <td style={{ fontWeight: 'bold', color: 'var(--primary)' }}>{team.name}</td>
-                        <td>{team.totalCalls.toLocaleString()}</td>
-                        <td>{team.totalFiles.toLocaleString()}</td>
-                        <td>{team.totalEntry.toLocaleString()}</td>
-                        {stateColumns.map(st => (
-                          <td key={st}>{team[st.toLowerCase()].toLocaleString()}</td>
-                        ))}
-                        <td style={{ color: 'var(--text-muted)', textAlign: 'center' }}>{team.prevMonthFiles.toLocaleString()}</td>
-                        <td style={{ color: 'var(--text-muted)', textAlign: 'center' }}>{team.currMonthFiles.toLocaleString()}</td>
-                      </tr>
-                    ))
+                    teamSummary.map(team => {
+                      const rowKey = `summary_${team.name}`;
+                      const isExpanded = !!expandedTeamRows[rowKey];
+                      return (
+                        <React.Fragment key={team.name}>
+                          <tr>
+                            <td 
+                              style={{ fontWeight: 'bold', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                              onClick={() => setExpandedTeamRows(prev => ({ ...prev, [rowKey]: !prev[rowKey] }))}
+                            >
+                              <span style={{ transform: isExpanded ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', fontSize: '0.8rem' }}>▶</span>
+                              {team.name}
+                            </td>
+                            <td>{team.totalCalls.toLocaleString()}</td>
+                            <td>{team.totalFiles.toLocaleString()}</td>
+                            <td>{team.totalEntry.toLocaleString()}</td>
+                            {stateColumns.map(st => (
+                              <td key={st}>{team[st.toLowerCase()].toLocaleString()}</td>
+                            ))}
+                            <td style={{ color: 'var(--text-muted)', textAlign: 'center' }}>{team.prevMonthFiles.toLocaleString()}</td>
+                            <td style={{ color: 'var(--text-muted)', textAlign: 'center' }}>{team.currMonthFiles.toLocaleString()}</td>
+                          </tr>
+                          {isExpanded && Object.values(team.agents || {}).map(agent => (
+                            <tr key={agent.name} style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                              <td style={{ paddingLeft: '2rem', color: 'var(--text-muted)' }}>— {agent.name}</td>
+                              <td>{agent.calls.toLocaleString()}</td>
+                              <td>{agent.files.toLocaleString()}</td>
+                              <td>{agent.entry.toLocaleString()}</td>
+                              {stateColumns.map(st => (
+                                <td key={st} style={{ color: 'var(--text-muted)' }}>{agent[st.toLowerCase()].toLocaleString()}</td>
+                              ))}
+                              <td style={{ color: 'var(--text-muted)', textAlign: 'center' }}>{agent.prevMonthFiles.toLocaleString()}</td>
+                              <td style={{ color: 'var(--text-muted)', textAlign: 'center' }}>{agent.currMonthFiles.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -863,23 +951,47 @@ const Performance = () => {
                 <tbody>
                   {teamDateSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={stateColumns.length + 4} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                      <td colSpan={stateColumns.length + 5} style={{ textAlign: 'center', padding: '1.5rem' }}>
                         No records found.
                       </td>
                     </tr>
                   ) : (
-                    teamDateSummary.map((row, idx) => (
-                      <tr key={idx}>
-                        <td style={{ color: 'var(--text-muted)' }}>{row.date}</td>
-                        <td style={{ fontWeight: 'bold', color: 'var(--primary)' }}>{row.teamName}</td>
-                        <td>{row.calls.toLocaleString()}</td>
-                        <td>{row.files.toLocaleString()}</td>
-                        <td>{row.entry.toLocaleString()}</td>
-                        {stateColumns.map(st => (
-                          <td key={st}>{row[st.toLowerCase()].toLocaleString()}</td>
-                        ))}
-                      </tr>
-                    ))
+                    teamDateSummary.map((row, idx) => {
+                      const rowKey = `date_${row.date}_${row.teamName}`;
+                      const isExpanded = !!expandedTeamRows[rowKey];
+                      return (
+                        <React.Fragment key={idx}>
+                          <tr>
+                            <td style={{ color: 'var(--text-muted)' }}>{row.date}</td>
+                            <td 
+                              style={{ fontWeight: 'bold', color: 'var(--primary)', cursor: 'pointer' }}
+                              onClick={() => setExpandedTeamRows(prev => ({ ...prev, [rowKey]: !prev[rowKey] }))}
+                            >
+                              <span style={{ transform: isExpanded ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', fontSize: '0.8rem', marginRight: '0.4rem' }}>▶</span>
+                              {row.teamName}
+                            </td>
+                            <td>{row.calls.toLocaleString()}</td>
+                            <td>{row.files.toLocaleString()}</td>
+                            <td>{row.entry.toLocaleString()}</td>
+                            {stateColumns.map(st => (
+                              <td key={st}>{row[st.toLowerCase()].toLocaleString()}</td>
+                            ))}
+                          </tr>
+                          {isExpanded && Object.values(row.agents || {}).map(agent => (
+                            <tr key={agent.name} style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                              <td style={{ color: 'var(--text-muted)' }}>{row.date}</td>
+                              <td style={{ paddingLeft: '2rem', color: 'var(--text-muted)' }}>— {agent.name}</td>
+                              <td>{agent.calls.toLocaleString()}</td>
+                              <td>{agent.files.toLocaleString()}</td>
+                              <td>{agent.entry.toLocaleString()}</td>
+                              {stateColumns.map(st => (
+                                <td key={st} style={{ color: 'var(--text-muted)' }}>{agent[st.toLowerCase()].toLocaleString()}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -900,23 +1012,47 @@ const Performance = () => {
                 <tbody>
                   {teamMonthSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={stateColumns.length + 4} style={{ textAlign: 'center', padding: '1.5rem' }}>
+                      <td colSpan={stateColumns.length + 5} style={{ textAlign: 'center', padding: '1.5rem' }}>
                         No records found.
                       </td>
                     </tr>
                   ) : (
-                    teamMonthSummary.map((row, idx) => (
-                      <tr key={idx}>
-                        <td style={{ color: 'var(--text-muted)' }}>{row.month}</td>
-                        <td style={{ fontWeight: 'bold', color: 'var(--primary)' }}>{row.teamName}</td>
-                        <td>{row.calls.toLocaleString()}</td>
-                        <td>{row.files.toLocaleString()}</td>
-                        <td>{row.entry.toLocaleString()}</td>
-                        {stateColumns.map(st => (
-                          <td key={st}>{row[st.toLowerCase()].toLocaleString()}</td>
-                        ))}
-                      </tr>
-                    ))
+                    teamMonthSummary.map((row, idx) => {
+                      const rowKey = `month_${row.month}_${row.teamName}`;
+                      const isExpanded = !!expandedTeamRows[rowKey];
+                      return (
+                        <React.Fragment key={idx}>
+                          <tr>
+                            <td style={{ color: 'var(--text-muted)' }}>{row.month}</td>
+                            <td 
+                              style={{ fontWeight: 'bold', color: 'var(--primary)', cursor: 'pointer' }}
+                              onClick={() => setExpandedTeamRows(prev => ({ ...prev, [rowKey]: !prev[rowKey] }))}
+                            >
+                              <span style={{ transform: isExpanded ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', fontSize: '0.8rem', marginRight: '0.4rem' }}>▶</span>
+                              {row.teamName}
+                            </td>
+                            <td>{row.calls.toLocaleString()}</td>
+                            <td>{row.files.toLocaleString()}</td>
+                            <td>{row.entry.toLocaleString()}</td>
+                            {stateColumns.map(st => (
+                              <td key={st}>{row[st.toLowerCase()].toLocaleString()}</td>
+                            ))}
+                          </tr>
+                          {isExpanded && Object.values(row.agents || {}).map(agent => (
+                            <tr key={agent.name} style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                              <td style={{ color: 'var(--text-muted)' }}>{row.month}</td>
+                              <td style={{ paddingLeft: '2rem', color: 'var(--text-muted)' }}>— {agent.name}</td>
+                              <td>{agent.calls.toLocaleString()}</td>
+                              <td>{agent.files.toLocaleString()}</td>
+                              <td>{agent.entry.toLocaleString()}</td>
+                              {stateColumns.map(st => (
+                                <td key={st} style={{ color: 'var(--text-muted)' }}>{agent[st.toLowerCase()].toLocaleString()}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

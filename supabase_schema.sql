@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public.daily_entries (
     rj INTEGER DEFAULT 0,
     up INTEGER DEFAULT 0,
     br INTEGER DEFAULT 0,
+    nk INTEGER DEFAULT 0,
     others INTEGER DEFAULT 0,
     is_leave BOOLEAN DEFAULT FALSE,
     last_month_entry INTEGER DEFAULT 0,
@@ -51,6 +52,7 @@ INSERT INTO public.teams (name) VALUES ('UT'), ('ARR'), ('IND'), ('MS2') ON CONF
 -- Migrations (safe to run multiple times)
 ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS last_month_entry INTEGER DEFAULT 0;
 ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS curr_month_entry INTEGER DEFAULT 0;
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS nk INTEGER DEFAULT 0;
 
 -- Create Agent Monthly Entries Table
 CREATE TABLE IF NOT EXISTS public.agent_monthly_entries (
