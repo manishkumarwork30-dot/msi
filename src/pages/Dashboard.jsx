@@ -99,8 +99,8 @@ const Dashboard = () => {
           mh: entry.mh || 0,
           others: entry.others || 0,
           id: entry.id || null,
-          prevMonthFiles: monthly.last_month_entry || 0,
-          currMonthFiles: monthly.curr_month_entry || 0
+          prevMonthFiles: monthly.last_month_entry ?? entry.last_month_entry ?? 0,
+          currMonthFiles: monthly.curr_month_entry ?? entry.curr_month_entry ?? 0
         };
       });
 
@@ -253,11 +253,20 @@ const Dashboard = () => {
         return entryObj;
       });
 
-      const { error: entriesErr } = await supabase
+      let { error: entriesErr } = await supabase
         .from('daily_entries')
         .upsert(entries, { onConflict: 'agent_id,date' });
 
-      if (entriesErr) throw entriesErr;
+      if (entriesErr && entriesErr.message?.includes("'mh'")) {
+        const entriesWithoutMh = entries.map(({ mh, ...rest }) => rest);
+        const retryRes = await supabase
+          .from('daily_entries')
+          .upsert(entriesWithoutMh, { onConflict: 'agent_id,date' });
+        if (retryRes.error) throw retryRes.error;
+        entriesErr = null;
+      } else if (entriesErr) {
+        throw entriesErr;
+      }
 
       // 1.5 Save agent monthly entries
       const monthlyEntries = data.map(row => ({

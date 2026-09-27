@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.agents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     team_id UUID REFERENCES public.teams(id) ON DELETE CASCADE,
+    pin TEXT DEFAULT '2000',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -55,6 +56,7 @@ ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS last_month_entry INTEG
 ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS curr_month_entry INTEGER DEFAULT 0;
 ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS nk INTEGER DEFAULT 0;
 ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS mh INTEGER DEFAULT 0;
+ALTER TABLE public.agents ADD COLUMN IF NOT EXISTS pin TEXT DEFAULT '2000';
 
 -- Create Agent Monthly Entries Table
 CREATE TABLE IF NOT EXISTS public.agent_monthly_entries (

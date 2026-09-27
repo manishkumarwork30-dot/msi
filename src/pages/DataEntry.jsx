@@ -279,41 +279,72 @@ const DataEntry = () => {
 
   // Save reviewed grid to Supabase
   const handleSaveGrid = async () => {
+    if (!entryDate) {
+      alert("Please select a target entry date.");
+      return;
+    }
+
     setSaving(true);
     try {
-      const entries = Object.keys(gridData).map(agentId => {
-        const row = gridData[agentId];
+      const agentIds = Object.keys(gridData);
+      if (agentIds.length === 0) {
+        alert("No agent records available to save.");
+        setSaving(false);
+        return;
+      }
+
+      const entries = agentIds.map(agentId => {
+        const row = gridData[agentId] || {};
         // Calculate files as the sum of all states
-        const calculatedFiles = stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0);
+        const calculatedFiles = stateColumns.reduce((sum, st) => sum + (parseInt(row[st.toLowerCase()]) || 0), 0);
         return {
           agent_id: agentId,
           date: entryDate,
-          calls: row.calls,
-          files: calculatedFiles, // calculated sum
-          entry: row.entry || 0,
-          is_leave: row.is_leave,
-          pb: row.pb,
-          hr: row.hr,
-          jk: row.jk,
-          hp: row.hp,
-          mp: row.mp,
-          rj: row.rj,
-          up: row.up,
-          br: row.br,
-          mh: row.mh,
-          others: row.others
+          calls: parseInt(row.calls) || 0,
+          files: calculatedFiles,
+          entry: parseInt(row.entry) || 0,
+          is_leave: !!row.is_leave,
+          pb: parseInt(row.pb) || 0,
+          hr: parseInt(row.hr) || 0,
+          jk: parseInt(row.jk) || 0,
+          hp: parseInt(row.hp) || 0,
+          mp: parseInt(row.mp) || 0,
+          rj: parseInt(row.rj) || 0,
+          up: parseInt(row.up) || 0,
+          br: parseInt(row.br) || 0,
+          mh: parseInt(row.mh) || 0,
+          others: parseInt(row.others) || 0,
+          last_month_entry: parseInt(row.last_month_entry) || 0,
+          curr_month_entry: parseInt(row.curr_month_entry) || 0
         };
       });
 
-      const { error } = await supabase
+      let { error: dailyErr } = await supabase
         .from('daily_entries')
         .upsert(entries, { onConflict: 'agent_id,date' });
 
-      if (error) throw error;
+      // If 'mh' column is missing in Supabase table schema, retry without 'mh' and warn user
+      if (dailyErr && dailyErr.message?.includes("'mh'")) {
+        console.warn("'mh' column missing in Supabase daily_entries table. Retrying without 'mh'...");
+        const entriesWithoutMh = entries.map(({ mh, ...rest }) => rest);
+        const retryRes = await supabase
+          .from('daily_entries')
+          .upsert(entriesWithoutMh, { onConflict: 'agent_id,date' });
+        
+        if (retryRes.error) {
+          throw retryRes.error;
+        } else {
+          alert(`Daily entries saved successfully!\n\nNote: 'mh' column does not exist in your Supabase 'daily_entries' table yet. Run this SQL in Supabase SQL Editor to support 'MH' state:\n\nALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS mh INTEGER DEFAULT 0;`);
+          dailyErr = null;
+        }
+      } else if (dailyErr) {
+        throw dailyErr;
+      }
 
       // Save agent monthly entries
-      const monthlyEntries = Object.keys(gridData).map(agentId => {
-        const row = gridData[agentId];
+      let monthlyRlsIssue = false;
+      const monthlyEntries = agentIds.map(agentId => {
+        const row = gridData[agentId] || {};
         return {
           agent_id: agentId,
           month: entryDate.substring(0, 7),
@@ -326,12 +357,21 @@ const DataEntry = () => {
         .from('agent_monthly_entries')
         .upsert(monthlyEntries, { onConflict: 'agent_id,month' });
 
-      if (monthlyErr) throw monthlyErr;
+      if (monthlyErr) {
+        console.warn('Warning saving monthly entries:', monthlyErr);
+        if (monthlyErr.code === '42501' || monthlyErr.message?.includes('row-level security')) {
+          monthlyRlsIssue = true;
+        }
+      }
 
-      alert(`Successfully saved all records to Supabase for ${entryDate}!`);
+      if (monthlyRlsIssue) {
+        alert(`Daily entries saved successfully for ${entryDate}!\n\nNote: agent_monthly_entries table has RLS policy enabled in Supabase. Run "ALTER TABLE public.agent_monthly_entries DISABLE ROW LEVEL SECURITY;" in Supabase SQL Editor if you want monthly totals synced to that table too.`);
+      } else {
+        alert(`Successfully saved all records to database for ${entryDate}!`);
+      }
     } catch (err) {
-      console.error(err);
-      alert("Error saving records: " + err.message);
+      console.error('Error saving records:', err);
+      alert("Error saving records: " + (err.message || err.details || JSON.stringify(err)));
     } finally {
       setSaving(false);
     }

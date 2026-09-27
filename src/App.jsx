@@ -168,6 +168,8 @@ const AppLayout = ({ children }) => {
   );
 };
 
+import AgentEntry from './pages/AgentEntry';
+
 // ProtectedRoute checks if a user session exists in Supabase
 const ProtectedRoute = ({ children }) => {
   const [session, setSession] = useState(null);
@@ -232,6 +234,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/agent-entry" element={<AgentEntry />} />
         <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
         <Route path="/todays-agents" element={<ProtectedRoute><AppLayout><TodaysAgents /></AppLayout></ProtectedRoute>} />
         <Route path="/data-entry" element={<ProtectedRoute><AppLayout><DataEntry /></AppLayout></ProtectedRoute>} />

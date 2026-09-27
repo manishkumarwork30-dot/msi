@@ -82,13 +82,21 @@ const AdminSettings = () => {
     }
   };
 
+  const [newAgentPin, setNewAgentPin] = useState('2000');
+  const [editingAgentPin, setEditingAgentPin] = useState('');
+
   const handleCreateAgent = async (e) => {
     e.preventDefault();
     try {
-      const { error } = await supabase.from('agents').insert([{ name: newAgentName, team_id: selectedTeamId }]);
+      const { error } = await supabase.from('agents').insert([{ 
+        name: newAgentName, 
+        team_id: selectedTeamId || null,
+        pin: newAgentPin || '2000'
+      }]);
       if (error) throw error;
       alert(`Agent "${newAgentName}" created successfully!`);
       setNewAgentName('');
+      setNewAgentPin('2000');
       loadData();
     } catch (err) {
       alert(err.message);
@@ -100,7 +108,11 @@ const AdminSettings = () => {
     try {
       const { error } = await supabase
         .from('agents')
-        .update({ name: editingAgentName, team_id: editingAgentTeamId || null })
+        .update({ 
+          name: editingAgentName, 
+          team_id: editingAgentTeamId || null,
+          pin: editingAgentPin || '2000'
+        })
         .eq('id', agentId);
       if (error) throw error;
       alert('Agent updated successfully!');
@@ -296,11 +308,22 @@ const AdminSettings = () => {
                     ))}
                   </select>
                 </div>
+                <div className="input-group">
+                  <label>Agent Security PIN</label>
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    placeholder="e.g. 2000" 
+                    value={newAgentPin}
+                    onChange={(e) => setNewAgentPin(e.target.value)}
+                    required
+                  />
+                </div>
                 <button type="submit" className="btn btn-primary">Create Agent</button>
               </form>
 
               <h3>Registered Agents</h3>
-              <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
+              <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
                 {agentsList.map(a => {
                   const isEditing = editingAgentId === a.id;
                   return (
@@ -313,6 +336,7 @@ const AdminSettings = () => {
                             value={editingAgentName} 
                             onChange={(e) => setEditingAgentName(e.target.value)} 
                             style={{ margin: 0, padding: '0.25rem 0.5rem', fontSize: '0.85rem' }} 
+                            placeholder="Agent Name"
                           />
                           <select 
                             className="input-field" 
@@ -325,6 +349,14 @@ const AdminSettings = () => {
                               <option key={t.id} value={t.id}>{t.name}</option>
                             ))}
                           </select>
+                          <input 
+                            type="text" 
+                            className="input-field" 
+                            value={editingAgentPin} 
+                            onChange={(e) => setEditingAgentPin(e.target.value)} 
+                            style={{ margin: 0, padding: '0.25rem 0.5rem', fontSize: '0.85rem' }} 
+                            placeholder="PIN (Default: 2000)"
+                          />
                           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
                             <button onClick={() => handleUpdateAgent(a.id)} className="btn btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', flex: 1 }}>Save</button>
                             <button onClick={() => setEditingAgentId(null)} className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', flex: 1 }}>Cancel</button>
@@ -335,10 +367,16 @@ const AdminSettings = () => {
                           <div>
                             <div style={{ fontWeight: '600' }}>{a.name}</div>
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Team: {a.teams?.name || 'None'}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0.25rem' }}>PIN: {a.pin || '2000'}</div>
                           </div>
                           <div style={{ display: 'flex', gap: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.5rem' }}>
                             <button 
-                              onClick={() => { setEditingAgentId(a.id); setEditingAgentName(a.name); setEditingAgentTeamId(a.team_id || ''); }} 
+                              onClick={() => { 
+                                setEditingAgentId(a.id); 
+                                setEditingAgentName(a.name); 
+                                setEditingAgentTeamId(a.team_id || ''); 
+                                setEditingAgentPin(a.pin || '2000'); 
+                              }} 
                               className="btn btn-secondary" 
                               style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', flex: 1 }}
                             >
