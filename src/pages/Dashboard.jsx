@@ -572,8 +572,8 @@ const Dashboard = () => {
   
                 {/* Grand Total Row */}
                 <tr className="row-grand-total">
-                  <td style={{ textAlign: 'right', color: 'var(--primary)' }}>GRAND TOTAL:</td>
-                  <td>{grandTotals.calls}</td>
+                  {/* <td style={{ textAlign: 'right', color: 'var(--primary)' }}>GRAND TOTAL:</td> */}
+                  {/* <td>{grandTotals.calls}</td> */}
                   <td>{grandTotals.files}</td>
                   {stateColumns.map(st => (
                     <td key={st}>{grandTotals[st.toLowerCase()] || 0}</td>
