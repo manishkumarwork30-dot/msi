@@ -4,35 +4,6 @@ import { FileSpreadsheet, Save, Clipboard, RefreshCw } from 'lucide-react';
 
 const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'MH', 'OTHERS'];
 
-const getMonthRanges = (dateStr) => {
-  const date = new Date(dateStr);
-  const year = date.getFullYear();
-  const month = date.getMonth(); // 0-indexed
-
-  // Current Month
-  const curStart = new Date(year, month, 1);
-  const curEnd = new Date(year, month + 1, 0);
-
-  // Previous Month
-  const prevStart = new Date(year, month - 1, 1);
-  const prevEnd = new Date(year, month, 0);
-
-  // Format to YYYY-MM-DD
-  const formatDate = (d) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-
-  return {
-    currentStart: formatDate(curStart),
-    currentEnd: formatDate(curEnd),
-    prevStart: formatDate(prevStart),
-    prevEnd: formatDate(prevEnd)
-  };
-};
-
 const DataEntry = () => {
   const [agentsList, setAgentsList] = useState([]);
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
@@ -59,12 +30,10 @@ const DataEntry = () => {
       (data || []).forEach(agent => {
         initialGrid[agent.id] = {
           calls: 0,
-          files: 0, // Calculated dynamically
+          files: 0,
           entry: 0,
           is_leave: false,
-          pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0,
-          last_month_entry: 0,
-          curr_month_entry: 0
+          pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0
         };
       });
       setGridData(initialGrid);
@@ -89,35 +58,15 @@ const DataEntry = () => {
         
         if (error) throw error;
 
-        // Fetch monthly entries from agent_monthly_entries table
-        const currentMonthStr = entryDate.substring(0, 7);
-        const { data: monthlyDbData, error: monthlyErr } = await supabase
-          .from('agent_monthly_entries')
-          .select('*')
-          .eq('month', currentMonthStr);
-
-        if (monthlyErr) throw monthlyErr;
-
-        const monthlyMap = {};
-        (monthlyDbData || []).forEach(row => {
-          monthlyMap[row.agent_id] = {
-            last_month_entry: row.last_month_entry || 0,
-            curr_month_entry: row.curr_month_entry || 0
-          };
-        });
-
         // Reset grid to default template first
         const resetGrid = {};
         agentsList.forEach(agent => {
-          const monthly = monthlyMap[agent.id] || { last_month_entry: 0, curr_month_entry: 0 };
           resetGrid[agent.id] = {
             calls: 0,
             files: 0,
             entry: 0,
             is_leave: false,
-            pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0,
-            last_month_entry: monthly.last_month_entry,
-            curr_month_entry: monthly.curr_month_entry
+            pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0
           };
         });
 
@@ -125,7 +74,6 @@ const DataEntry = () => {
         if (data && data.length > 0) {
           data.forEach(item => {
             if (resetGrid[item.agent_id]) {
-              const monthly = monthlyMap[item.agent_id] || { last_month_entry: 0, curr_month_entry: 0 };
               resetGrid[item.agent_id] = {
                 calls: item.calls || 0,
                 files: item.files || 0,
@@ -140,9 +88,7 @@ const DataEntry = () => {
                 up: item.up || 0,
                 br: item.br || 0,
                 mh: item.mh || 0,
-                others: item.others || 0,
-                last_month_entry: monthly.last_month_entry,
-                curr_month_entry: monthly.curr_month_entry
+                others: item.others || 0
               };
             }
           });
@@ -161,14 +107,17 @@ const DataEntry = () => {
     setGridData(prev => {
       const updatedRow = { ...prev[agentId], [field]: value };
       
-      // Auto-calculate entry if any state column changes
+      // Auto-calculate files and entry if any state column changes
       if (stateColumns.map(s => s.toLowerCase()).includes(field)) {
         const sum = stateColumns.reduce((acc, st) => {
           const colName = st.toLowerCase();
           const val = colName === field ? value : (updatedRow[colName] || 0);
           return acc + (parseInt(val) || 0);
         }, 0);
-        updatedRow.entry = sum;
+        updatedRow.files = sum;
+        if (field !== 'entry') {
+          updatedRow.entry = sum;
+        }
       }
       
       return {
@@ -220,7 +169,7 @@ const DataEntry = () => {
         const agentNameInput = cols[0];
         if (!agentNameInput) return;
 
-        // Remove team suffix like " (UT)" or "(ARR)" or just parenthesis
+        // Remove team suffix like " (UT)" or "(ARR)"
         const cleanInputName = agentNameInput.replace(/\s*\(.*?\)\s*/g, '').trim().toLowerCase();
 
         // Find agent matches
@@ -253,7 +202,7 @@ const DataEntry = () => {
             ...prevRow,
             calls,
             entry: hasEntryCol ? entryVal : stateSum,
-            files: stateSum, // Calculate files as sum of states
+            files: stateSum,
             is_leave,
             ...stateValues
           };
@@ -295,14 +244,13 @@ const DataEntry = () => {
 
       const entries = agentIds.map(agentId => {
         const row = gridData[agentId] || {};
-        // Calculate files as the sum of all states
         const calculatedFiles = stateColumns.reduce((sum, st) => sum + (parseInt(row[st.toLowerCase()]) || 0), 0);
         return {
           agent_id: agentId,
           date: entryDate,
           calls: parseInt(row.calls) || 0,
           files: calculatedFiles,
-          entry: parseInt(row.entry) || 0,
+          entry: parseInt(row.entry) || calculatedFiles,
           is_leave: !!row.is_leave,
           pb: parseInt(row.pb) || 0,
           hr: parseInt(row.hr) || 0,
@@ -313,9 +261,7 @@ const DataEntry = () => {
           up: parseInt(row.up) || 0,
           br: parseInt(row.br) || 0,
           mh: parseInt(row.mh) || 0,
-          others: parseInt(row.others) || 0,
-          last_month_entry: parseInt(row.last_month_entry) || 0,
-          curr_month_entry: parseInt(row.curr_month_entry) || 0
+          others: parseInt(row.others) || 0
         };
       });
 
@@ -323,7 +269,7 @@ const DataEntry = () => {
         .from('daily_entries')
         .upsert(entries, { onConflict: 'agent_id,date' });
 
-      // If 'mh' column is missing in Supabase table schema, retry without 'mh' and warn user
+      // If 'mh' column is missing in Supabase table schema, retry without 'mh'
       if (dailyErr && dailyErr.message?.includes("'mh'")) {
         console.warn("'mh' column missing in Supabase daily_entries table. Retrying without 'mh'...");
         const entriesWithoutMh = entries.map(({ mh, ...rest }) => rest);
@@ -341,34 +287,7 @@ const DataEntry = () => {
         throw dailyErr;
       }
 
-      // Save agent monthly entries
-      let monthlyRlsIssue = false;
-      const monthlyEntries = agentIds.map(agentId => {
-        const row = gridData[agentId] || {};
-        return {
-          agent_id: agentId,
-          month: entryDate.substring(0, 7),
-          last_month_entry: parseInt(row.last_month_entry) || 0,
-          curr_month_entry: parseInt(row.curr_month_entry) || 0
-        };
-      });
-
-      const { error: monthlyErr } = await supabase
-        .from('agent_monthly_entries')
-        .upsert(monthlyEntries, { onConflict: 'agent_id,month' });
-
-      if (monthlyErr) {
-        console.warn('Warning saving monthly entries:', monthlyErr);
-        if (monthlyErr.code === '42501' || monthlyErr.message?.includes('row-level security')) {
-          monthlyRlsIssue = true;
-        }
-      }
-
-      if (monthlyRlsIssue) {
-        alert(`Daily entries saved successfully for ${entryDate}!\n\nNote: agent_monthly_entries table has RLS policy enabled in Supabase. Run "ALTER TABLE public.agent_monthly_entries DISABLE ROW LEVEL SECURITY;" in Supabase SQL Editor if you want monthly totals synced to that table too.`);
-      } else {
-        alert(`Successfully saved all records to database for ${entryDate}!`);
-      }
+      alert(`Successfully saved all records to database for ${entryDate}!`);
     } catch (err) {
       console.error('Error saving records:', err);
       alert("Error saving records: " + (err.message || err.details || JSON.stringify(err)));
@@ -384,7 +303,7 @@ const DataEntry = () => {
           <h1>Insert Data</h1>
           <p style={{ color: 'var(--text-muted)' }}>Paste from Excel, double check values, and save to database</p>
         </div>
-        <div className="glass-panel" style={{ padding: '0.75rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', border: '1px solid var(--primary-low, var(--border-color))' }}>
+        <div className="glass-panel" style={{ padding: '0.75rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', border: '1px solid var(--border-color)' }}>
           <label style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--primary)' }}>Target Entry Date:</label>
           <input 
             type="date" 
@@ -407,7 +326,7 @@ const DataEntry = () => {
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
             Copy your rows from Excel or Google Sheets, paste them here, and click Parse. Values will be loaded below for review.
             <br />
-            <span style={{ color: 'var(--text-main)' }}>Columns: Agent | Calls | Files | PB | HR | JK | HP | MP | RJ | UP | BR | MH | Others | Leave</span>
+            <span style={{ color: 'var(--text-main)' }}>Columns: Agent | Calls | Entry | PB | HR | JK | HP | MP | RJ | UP | BR | MH | Others | Leave</span>
           </p>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <textarea 
@@ -491,10 +410,9 @@ const DataEntry = () => {
                     <th style={{ minWidth: '150px' }}>Agent (Team)</th>
                     <th>Leave?</th>
                     <th>Calls</th>
+                    <th>Entry</th>
                     <th>File (Sum)</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
-                    <th>Last {new Date(new Date(entryDate).getFullYear(), new Date(entryDate).getMonth() - 1, 1).toLocaleString('default', { month: 'long' })} Entry</th>
-                    <th>First {new Date(entryDate).toLocaleString('default', { month: 'long' })} Entry</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -526,6 +444,16 @@ const DataEntry = () => {
                             disabled={row.is_leave}
                           />
                         </td>
+                        <td>
+                          <input 
+                            type="number"
+                            className="input-field"
+                            style={{ width: '70px', padding: '0.25rem', textAlign: 'center' }}
+                            value={row.entry || 0}
+                            onChange={(e) => handleCellChange(agent.id, 'entry', parseInt(e.target.value) || 0)}
+                            disabled={row.is_leave}
+                          />
+                        </td>
                         <td style={{ fontWeight: '600', color: 'var(--text-main)', textAlign: 'center', verticalAlign: 'middle' }}>
                           {calculatedFiles}
                         </td>
@@ -544,26 +472,6 @@ const DataEntry = () => {
                             </td>
                           );
                         })}
-                        <td>
-                          <input 
-                            type="number"
-                            className="input-field"
-                            style={{ width: '70px', padding: '0.25rem', textAlign: 'center' }}
-                            value={row.last_month_entry || 0}
-                            onChange={(e) => handleCellChange(agent.id, 'last_month_entry', parseInt(e.target.value) || 0)}
-                            disabled={row.is_leave}
-                          />
-                        </td>
-                        <td>
-                          <input 
-                            type="number"
-                            className="input-field"
-                            style={{ width: '70px', padding: '0.25rem', textAlign: 'center' }}
-                            value={row.curr_month_entry || 0}
-                            onChange={(e) => handleCellChange(agent.id, 'curr_month_entry', parseInt(e.target.value) || 0)}
-                            disabled={row.is_leave}
-                          />
-                        </td>
                       </tr>
                     );
                   })}
