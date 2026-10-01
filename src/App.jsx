@@ -30,25 +30,31 @@ const AppLayout = ({ children }) => {
       // Fetch entries for today
       const { data: entries, error: entriesErr } = await supabase
         .from('daily_entries')
-        .select('agent_id, is_leave')
+        .select('agent_id, is_leave, updated_at')
         .eq('date', today);
       if (entriesErr) throw entriesErr;
 
       const entryMap = {};
       (entries || []).forEach(e => {
-        entryMap[e.agent_id] = e.is_leave;
+        entryMap[e.agent_id] = {
+          is_leave: e.is_leave,
+          updated_at: e.updated_at
+        };
       });
 
       const statusList = (agents || []).map(agent => {
         let status = 'none'; // default
+        let updatedAt = null;
         if (entryMap[agent.id] !== undefined) {
-          status = entryMap[agent.id] ? 'leave' : 'active';
+          status = entryMap[agent.id].is_leave ? 'leave' : 'active';
+          updatedAt = entryMap[agent.id].updated_at;
         }
         return {
           id: agent.id,
           name: agent.name,
           team: agent.teams?.name || 'No Team',
-          status
+          status,
+          updatedAt
         };
       });
 
@@ -59,6 +65,19 @@ const AppLayout = ({ children }) => {
       setLoading(false);
     }
   }, []);
+
+  const formatTime = (isoString) => {
+    if (!isoString) return null;
+    try {
+      return new Date(isoString).toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return null;
+    }
+  };
 
   useEffect(() => {
     fetchTodayStatus();
@@ -116,18 +135,30 @@ const AppLayout = ({ children }) => {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {agentsStatus.map(agent => (
-              <div key={agent.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', padding: '0.25rem 0.5rem', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-                <span style={{ color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '140px' }}>
-                  {agent.name} <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>({agent.team})</span>
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  {agent.status === 'active' && <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e' }} title="Active" />}
-                  {agent.status === 'leave' && <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444' }} title="On Leave" />}
-                  {agent.status === 'none' && <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#94a3b8' }} title="No Entry" />}
-                </span>
-              </div>
-            ))}
+            {agentsStatus.map(agent => {
+              const timeStr = formatTime(agent.updatedAt);
+              let statusText = 'No Entry';
+              if (agent.status === 'active') statusText = `Active${timeStr ? ` • ${timeStr}` : ''}`;
+              if (agent.status === 'leave') statusText = `On Leave${timeStr ? ` • ${timeStr}` : ''}`;
+
+              return (
+                <div key={agent.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', padding: '0.25rem 0.5rem', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                  <span style={{ color: 'var(--text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '130px' }}>
+                    {agent.name} <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>({agent.team})</span>
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    {timeStr && (
+                      <span style={{ fontSize: '0.68rem', color: 'var(--primary)', fontWeight: '500' }}>
+                        {timeStr}
+                      </span>
+                    )}
+                    {agent.status === 'active' && <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e', flexShrink: 0 }} title={statusText} />}
+                    {agent.status === 'leave' && <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444', flexShrink: 0 }} title={statusText} />}
+                    {agent.status === 'none' && <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#94a3b8', flexShrink: 0 }} title="No Entry" />}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
 

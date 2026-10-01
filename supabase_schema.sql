@@ -93,5 +93,23 @@ ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS long_calls INTEGER DEF
 ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS incoming_duration INTEGER DEFAULT 0;
 ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS outgoing_duration INTEGER DEFAULT 0;
 
+-- Migration: Add updated_at column to daily_entries and trigger
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
+
+CREATE OR REPLACE FUNCTION public.set_daily_entries_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = timezone('utc', now());
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_daily_entries_updated_at ON public.daily_entries;
+CREATE TRIGGER trg_daily_entries_updated_at
+BEFORE INSERT OR UPDATE ON public.daily_entries
+FOR EACH ROW
+EXECUTE FUNCTION public.set_daily_entries_updated_at();
+
+
 
 

@@ -103,7 +103,7 @@ const AuditAgent = () => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       processFile(e.dataTransfer.files[0]);
     }
@@ -184,16 +184,16 @@ const AuditAgent = () => {
   // Date-wise Agent Calls Aggregation
   const dateWiseAgentCalls = useMemo(() => {
     if (rawData.length === 0) return [];
-    
+
     const performanceMap = {};
     rawData.forEach(row => {
       const agentName = (row.agent_name || '').toString().trim() || 'Unknown Agent';
       const callStartTimeStr = row.call_start_time_in;
       if (!callStartTimeStr) return;
-      
+
       const parsed = new Date(callStartTimeStr);
       if (isNaN(parsed.getTime())) return;
-      
+
       const durationIn = parseNum(row.duration_in);
       const durationOut = parseNum(row.duration_out);
       const duration = Math.max(durationIn, durationOut);
@@ -203,7 +203,7 @@ const AuditAgent = () => {
       const month = String(parsed.getMonth() + 1).padStart(2, '0');
       const day = String(parsed.getDate()).padStart(2, '0');
       const dateStr = `${year}-${month}-${day}`;
-      
+
       const key = `${agentName}_${dateStr}`;
       if (!performanceMap[key]) {
         performanceMap[key] = {
@@ -220,7 +220,7 @@ const AuditAgent = () => {
       perf.calls += 1;
       perf.incoming_duration += durationIn;
       perf.outgoing_duration += durationOut;
-      if (durationIn > 120 || durationOut > 120) {
+      if (durationIn > 90 || durationOut > 90) {
         perf.long_calls += 1;
       }
       perf.rawCalls.push({
@@ -229,15 +229,15 @@ const AuditAgent = () => {
         Src: row.Src
       });
     });
-    
+
     // Post-process to sort calls and compute gaps, first/last call times
     Object.values(performanceMap).forEach(perf => {
       perf.rawCalls.sort((a, b) => a.time - b.time);
-      
+
       if (perf.rawCalls.length > 0) {
         const firstCall = perf.rawCalls[0].time;
         const lastCall = perf.rawCalls[perf.rawCalls.length - 1].time;
-        
+
         const formatTime = (d) => {
           return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         };
@@ -247,18 +247,18 @@ const AuditAgent = () => {
         perf.first_call_time = null;
         perf.last_call_time = null;
       }
-      
+
       // Calculate gaps (>10 minutes, i.e., 600 seconds)
       const gapsList = [];
       let totalGapSecs = 0;
-      
+
       for (let i = 1; i < perf.rawCalls.length; i++) {
         const prev = perf.rawCalls[i - 1];
         const curr = perf.rawCalls[i];
-        
+
         const prevEnd = new Date(prev.time.getTime() + prev.duration * 1000);
         const gapSecs = (curr.time.getTime() - prevEnd.getTime()) / 1000;
-        
+
         if (gapSecs > 600) {
           gapsList.push({
             duration: gapSecs,
@@ -270,7 +270,7 @@ const AuditAgent = () => {
           totalGapSecs += gapSecs;
         }
       }
-      
+
       perf.gaps_count = gapsList.length;
       perf.total_gap_duration = Math.round(totalGapSecs);
       perf.gap_details = gapsList.map(g => {
@@ -279,10 +279,10 @@ const AuditAgent = () => {
         const toStr = g.to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         return `${durStr} gap (${fromStr} to ${toStr})`;
       }).join('; ') || 'No Gaps';
-      
+
       delete perf.rawCalls;
     });
-    
+
     return Object.values(performanceMap);
   }, [rawData]);
 
@@ -315,7 +315,7 @@ const AuditAgent = () => {
       dateWiseAgentCalls.forEach(item => {
         const cleanExcelName = item.agent_name.trim().toLowerCase().replace(/\s*\(.*?\)\s*/g, '');
         let agentId = agentMap[cleanExcelName];
-        
+
         // Exact match of clean Excel name with clean DB name is required
 
         if (agentId) {
@@ -535,7 +535,7 @@ const AuditAgent = () => {
       for (let i = 1; i < perf.rawCalls.length; i++) {
         const prev = perf.rawCalls[i - 1];
         const curr = perf.rawCalls[i];
-        
+
         // End time of previous call
         const prevEnd = new Date(prev.time.getTime() + prev.duration * 1000);
         // Gap to current call start
@@ -560,7 +560,7 @@ const AuditAgent = () => {
   const teamAuditSummary = useMemo(() => {
     if (rawData.length === 0) return [];
     const teamMap = {};
-    
+
     agentPerformance.forEach(ap => {
       const tName = ap.team_name || 'No Team';
       if (!teamMap[tName]) {
@@ -576,7 +576,7 @@ const AuditAgent = () => {
           agents: {}
         };
       }
-      
+
       const t = teamMap[tName];
       t.totalCalls += ap.totalCalls || 0;
       t.incomingReceived += ap.incomingReceived || 0;
@@ -585,7 +585,7 @@ const AuditAgent = () => {
       t.totalDurationIn += ap.totalDurationIn || 0;
       t.totalDurationOut += ap.totalDurationOut || 0;
       t.gapsCount += ap.gaps ? ap.gaps.length : 0;
-      
+
       t.agents[ap.agent_name] = {
         agentName: ap.agent_name,
         totalCalls: ap.totalCalls || 0,
@@ -597,20 +597,20 @@ const AuditAgent = () => {
         gapsCount: ap.gaps ? ap.gaps.length : 0
       };
     });
-    
+
     return Object.values(teamMap).sort((a, b) => a.teamName.localeCompare(b.teamName));
   }, [agentPerformance, rawData]);
 
   const teamDateWiseAudits = useMemo(() => {
     if (dateWiseAgentCalls.length === 0) return [];
-    
+
     const dateTeamMap = {};
-    
+
     dateWiseAgentCalls.forEach(item => {
       const cleanExcelName = item.agent_name.trim().toLowerCase().replace(/\s*\(.*?\)\s*/g, '');
       const teamName = agentTeamMap[cleanExcelName] || 'No Team';
       const dateStr = item.date;
-      
+
       const key = `${dateStr}_${teamName}`;
       if (!dateTeamMap[key]) {
         dateTeamMap[key] = {
@@ -624,14 +624,14 @@ const AuditAgent = () => {
           agents: {}
         };
       }
-      
+
       const dt = dateTeamMap[key];
       dt.totalCalls += item.calls || 0;
       dt.incomingDuration += item.incoming_duration || 0;
       dt.outgoingDuration += item.outgoing_duration || 0;
       dt.longCalls += item.long_calls || 0;
       dt.gapsCount += item.gaps_count || 0;
-      
+
       dt.agents[item.agent_name] = {
         agentName: item.agent_name,
         totalCalls: item.calls || 0,
@@ -641,7 +641,7 @@ const AuditAgent = () => {
         gapsCount: item.gaps_count || 0
       };
     });
-    
+
     return Object.values(dateTeamMap).sort((a, b) => {
       if (a.date !== b.date) return b.date.localeCompare(a.date);
       return a.teamName.localeCompare(b.teamName);
@@ -714,7 +714,7 @@ const AuditAgent = () => {
       const matchesDept = selectedDepartment === 'All' || dept === selectedDepartment;
       const matchesStatus = selectedStatus === 'All' || status === selectedStatus;
 
-      const matchesSearch = searchQuery === '' || 
+      const matchesSearch = searchQuery === '' ||
         (row.Src && row.Src.toString().toLowerCase().includes(searchQuery.toLowerCase())) ||
         agent.toLowerCase().includes(searchQuery.toLowerCase()) ||
         dept.toLowerCase().includes(searchQuery.toLowerCase());
@@ -777,7 +777,7 @@ const AuditAgent = () => {
       'First Call Start Time': p.firstCallTime ? p.firstCallTime.toLocaleString() : '-',
       'Last Call Start Time': p.lastCallTime ? p.lastCallTime.toLocaleString() : '-',
       'Gaps Count (> 10m)': p.gaps.length,
-      'Gaps Details': p.gaps.map(g => `${formatDuration(g.duration)} gap (${g.from.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} to ${g.to.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})})`).join('; ') || 'No Gaps'
+      'Gaps Details': p.gaps.map(g => `${formatDuration(g.duration)} gap (${g.from.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} to ${g.to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`).join('; ') || 'No Gaps'
     })));
 
     const wb = XLSX.utils.book_new();
@@ -859,7 +859,7 @@ const AuditAgent = () => {
 
       {/* Upload State */}
       {rawData.length === 0 ? (
-        <div 
+        <div
           className="glass-panel"
           onDragEnter={handleDrag}
           onDragOver={handleDrag}
@@ -893,11 +893,11 @@ const AuditAgent = () => {
             <label className="btn btn-primary" style={{ cursor: 'pointer', display: 'inline-flex', gap: '0.5rem' }}>
               <FileSpreadsheet size={18} />
               Browse File
-              <input 
-                type="file" 
-                accept=".xlsx, .xls, .csv" 
-                onChange={handleFileInput} 
-                style={{ display: 'none' }} 
+              <input
+                type="file"
+                accept=".xlsx, .xls, .csv"
+                onChange={handleFileInput}
+                style={{ display: 'none' }}
               />
             </label>
           </div>
@@ -905,7 +905,7 @@ const AuditAgent = () => {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          
+
           {/* Top Performance Analytics Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
             <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -945,8 +945,8 @@ const AuditAgent = () => {
                   Save date-wise call log summaries directly to the database daily entries table.
                 </p>
               </div>
-              <button 
-                onClick={handleSyncToDatabase} 
+              <button
+                onClick={handleSyncToDatabase}
                 disabled={syncing}
                 className="btn btn-primary"
                 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
@@ -958,9 +958,9 @@ const AuditAgent = () => {
 
             {/* Sync Feedback Message */}
             {syncStatus && (
-              <div style={{ 
-                padding: '1rem', 
-                borderRadius: '8px', 
+              <div style={{
+                padding: '1rem',
+                borderRadius: '8px',
                 border: `1px solid ${syncStatus.type === 'success' ? 'var(--primary)' : syncStatus.type === 'warning' ? '#f59e0b' : 'var(--error)'}`,
                 backgroundColor: syncStatus.type === 'success' ? 'rgba(74, 222, 128, 0.05)' : syncStatus.type === 'warning' ? 'rgba(245, 158, 11, 0.05)' : 'rgba(239, 68, 68, 0.05)',
                 color: 'var(--text-main)',
@@ -972,9 +972,9 @@ const AuditAgent = () => {
 
             {/* Unmatched Agents Warnings */}
             {unmatchedAgentsList.length > 0 && (
-              <div style={{ 
-                padding: '1rem', 
-                borderRadius: '8px', 
+              <div style={{
+                padding: '1rem',
+                borderRadius: '8px',
                 border: '1px solid rgba(245, 158, 11, 0.3)',
                 backgroundColor: 'rgba(245, 158, 11, 0.02)',
                 fontSize: '0.85rem'
@@ -987,9 +987,9 @@ const AuditAgent = () => {
                 </span>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
                   {unmatchedAgentsList.map((name, idx) => (
-                    <span key={idx} style={{ 
-                      backgroundColor: 'rgba(255,255,255,0.05)', 
-                      padding: '0.2rem 0.5rem', 
+                    <span key={idx} style={{
+                      backgroundColor: 'rgba(255,255,255,0.05)',
+                      padding: '0.2rem 0.5rem',
                       borderRadius: '4px',
                       fontSize: '0.8rem',
                       color: 'var(--text-main)',
@@ -1005,21 +1005,21 @@ const AuditAgent = () => {
 
           {/* Navigation Tabs for Audits */}
           <div style={{ display: 'flex', gap: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1rem' }}>
-            <button 
+            <button
               className={`btn ${auditActiveTab === 'agent' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setAuditActiveTab('agent')}
               style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
             >
               Agent Audits
             </button>
-            <button 
+            <button
               className={`btn ${auditActiveTab === 'team' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setAuditActiveTab('team')}
               style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
             >
               Team Audits
             </button>
-            <button 
+            <button
               className={`btn ${auditActiveTab === 'logs' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setAuditActiveTab('logs')}
               style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
@@ -1079,18 +1079,18 @@ const AuditAgent = () => {
                           </td>
                           <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', textAlign: 'center' }}>
                             {perf.gaps.length > 0 ? (
-                              <button 
+                              <button
                                 onClick={() => setExpandedAgents(prev => ({ ...prev, [perf.agent_name]: !prev[perf.agent_name] }))}
-                                className="btn btn-secondary" 
-                                style={{ 
-                                  padding: '0.25rem 0.5rem', 
-                                  color: '#ef4444', 
-                                  borderColor: 'rgba(239, 68, 68, 0.3)', 
+                                className="btn btn-secondary"
+                                style={{
+                                  padding: '0.25rem 0.5rem',
+                                  color: '#ef4444',
+                                  borderColor: 'rgba(239, 68, 68, 0.3)',
                                   backgroundColor: 'rgba(239, 68, 68, 0.05)',
-                                  fontSize: '0.75rem', 
-                                  display: 'inline-flex', 
-                                  gap: '0.25rem', 
-                                  alignItems: 'center' 
+                                  fontSize: '0.75rem',
+                                  display: 'inline-flex',
+                                  gap: '0.25rem',
+                                  alignItems: 'center'
                                 }}
                               >
                                 {perf.gaps.length} Gaps
@@ -1131,14 +1131,14 @@ const AuditAgent = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button 
+                  <button
                     className={`btn ${teamViewType === 'summary' ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => setTeamViewType('summary')}
                     style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
                   >
                     Summary View
                   </button>
-                  <button 
+                  <button
                     className={`btn ${teamViewType === 'date' ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => setTeamViewType('date')}
                     style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
@@ -1146,9 +1146,9 @@ const AuditAgent = () => {
                     Date-wise Breakdown
                   </button>
                 </div>
-                <button 
-                  onClick={teamViewType === 'summary' ? exportTeamAuditSummary : exportTeamDateWiseAudits} 
-                  className="btn btn-primary" 
+                <button
+                  onClick={teamViewType === 'summary' ? exportTeamAuditSummary : exportTeamDateWiseAudits}
+                  className="btn btn-primary"
                   style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                 >
                   <Download size={16} />
@@ -1178,7 +1178,7 @@ const AuditAgent = () => {
                         return (
                           <React.Fragment key={idx}>
                             <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                              <td 
+                              <td
                                 style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                                 onClick={() => setExpandedAgents(prev => ({ ...prev, [rowKey]: !prev[rowKey] }))}
                               >
@@ -1244,7 +1244,7 @@ const AuditAgent = () => {
                           <React.Fragment key={idx}>
                             <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                               <td style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>{row.date}</td>
-                              <td 
+                              <td
                                 style={{ padding: '0.75rem 1rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                                 onClick={() => setExpandedAgents(prev => ({ ...prev, [rowKey]: !prev[rowKey] }))}
                               >
@@ -1304,10 +1304,10 @@ const AuditAgent = () => {
                 {/* Search */}
                 <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
                   <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input 
-                    type="text" 
-                    className="input-field" 
-                    placeholder="Search Src or Agent..." 
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Search Src or Agent..."
                     value={searchQuery}
                     onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                     style={{ width: '100%', paddingLeft: '2.5rem', marginBottom: 0 }}
@@ -1317,9 +1317,9 @@ const AuditAgent = () => {
                 {/* Agent Filter */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Agent:</span>
-                  <select 
-                    className="input-field" 
-                    value={selectedAgent} 
+                  <select
+                    className="input-field"
+                    value={selectedAgent}
                     onChange={(e) => { setSelectedAgent(e.target.value); setCurrentPage(1); }}
                     style={{ marginBottom: 0, padding: '0.4rem 2rem 0.4rem 0.75rem' }}
                   >
@@ -1332,9 +1332,9 @@ const AuditAgent = () => {
                 {/* Department Filter */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Dept:</span>
-                  <select 
-                    className="input-field" 
-                    value={selectedDepartment} 
+                  <select
+                    className="input-field"
+                    value={selectedDepartment}
                     onChange={(e) => { setSelectedDepartment(e.target.value); setCurrentPage(1); }}
                     style={{ marginBottom: 0, padding: '0.4rem 2rem 0.4rem 0.75rem' }}
                   >
@@ -1347,9 +1347,9 @@ const AuditAgent = () => {
                 {/* Call Status Filter */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Status:</span>
-                  <select 
-                    className="input-field" 
-                    value={selectedStatus} 
+                  <select
+                    className="input-field"
+                    value={selectedStatus}
                     onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
                     style={{ marginBottom: 0, padding: '0.4rem 2rem 0.4rem 0.75rem' }}
                   >
@@ -1366,13 +1366,13 @@ const AuditAgent = () => {
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
                       {REQUIRED_COLUMNS.map(col => (
-                        <th 
-                          key={col} 
+                        <th
+                          key={col}
                           onClick={() => handleSort(col)}
-                          style={{ 
-                            padding: '0.75rem 1rem', 
-                            color: 'var(--text-muted)', 
-                            fontWeight: 600, 
+                          style={{
+                            padding: '0.75rem 1rem',
+                            color: 'var(--text-muted)',
+                            fontWeight: 600,
                             fontSize: '0.85rem',
                             cursor: 'pointer',
                             whiteSpace: 'nowrap'
@@ -1418,10 +1418,10 @@ const AuditAgent = () => {
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                     Showing {Math.min(filteredLogs.length, (currentPage - 1) * pageSize + 1)} to {Math.min(filteredLogs.length, currentPage * pageSize)} of {filteredLogs.length} logs
                   </span>
-                  
+
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <button 
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                       disabled={currentPage === 1}
                       className="btn btn-secondary"
                       style={{ padding: '0.35rem 0.75rem' }}
@@ -1429,8 +1429,8 @@ const AuditAgent = () => {
                       <ChevronLeft size={16} />
                     </button>
                     <span style={{ fontSize: '0.85rem' }}>Page {currentPage} of {totalPages}</span>
-                    <button 
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                       disabled={currentPage === totalPages}
                       className="btn btn-secondary"
                       style={{ padding: '0.35rem 0.75rem' }}

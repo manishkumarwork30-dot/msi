@@ -22,25 +22,31 @@ const TodaysAgents = () => {
       // Fetch entries for today
       const { data: entries, error: entriesErr } = await supabase
         .from('daily_entries')
-        .select('agent_id, is_leave')
+        .select('agent_id, is_leave, updated_at')
         .eq('date', today);
       if (entriesErr) throw entriesErr;
 
       const entryMap = {};
       (entries || []).forEach(e => {
-        entryMap[e.agent_id] = e.is_leave;
+        entryMap[e.agent_id] = {
+          is_leave: e.is_leave,
+          updated_at: e.updated_at
+        };
       });
 
       const list = (agents || []).map(agent => {
         let status = 'none'; // default
+        let updatedAt = null;
         if (entryMap[agent.id] !== undefined) {
-          status = entryMap[agent.id] ? 'leave' : 'active';
+          status = entryMap[agent.id].is_leave ? 'leave' : 'active';
+          updatedAt = entryMap[agent.id].updated_at;
         }
         return {
           id: agent.id,
           name: agent.name,
           team: agent.teams?.name || 'No Team',
-          status
+          status,
+          updatedAt
         };
       });
 
@@ -51,6 +57,19 @@ const TodaysAgents = () => {
       setLoading(false);
     }
   }, []);
+
+  const formatTime = (isoString) => {
+    if (!isoString) return null;
+    try {
+      return new Date(isoString).toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return null;
+    }
+  };
 
   useEffect(() => {
     fetchTodayStatus();
@@ -153,32 +172,40 @@ const TodaysAgents = () => {
       ) : (
         /* Status Grid */
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
-          {filteredAgents.map(agent => (
-            <div key={agent.id} className="glass-panel" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}>
-              <div>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: '600' }}>{agent.name}</h3>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Team: {agent.team}</span>
+          {filteredAgents.map(agent => {
+            const timeStr = formatTime(agent.updatedAt);
+            return (
+              <div key={agent.id} className="glass-panel" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: '600' }}>{agent.name}</h3>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Team: {agent.team}</span>
+                  {timeStr && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '0.25rem', fontWeight: '500' }}>
+                      Updated at {timeStr}
+                    </div>
+                  )}
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {agent.status === 'active' && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#22c55e', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                      <CheckCircle2 size={16} /> Active
+                    </span>
+                  )}
+                  {agent.status === 'leave' && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                      <XCircle size={16} /> Leave
+                    </span>
+                  )}
+                  {agent.status === 'none' && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#94a3b8', fontSize: '0.85rem', fontWeight: '500' }}>
+                      <AlertCircle size={16} /> Pending
+                    </span>
+                  )}
+                </div>
               </div>
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {agent.status === 'active' && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#22c55e', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                    <CheckCircle2 size={16} /> Active
-                  </span>
-                )}
-                {agent.status === 'leave' && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                    <XCircle size={16} /> Leave
-                  </span>
-                )}
-                {agent.status === 'none' && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#94a3b8', fontSize: '0.85rem', fontWeight: '500' }}>
-                    <AlertCircle size={16} /> Pending
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
