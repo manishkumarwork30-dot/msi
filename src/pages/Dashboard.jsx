@@ -449,7 +449,7 @@ const Dashboard = () => {
                 <th style={{ minWidth: '160px' }}>AGENT</th>
                 <th>CALLS</th>
                 <th>PENDING</th>
-                <th>FEE (₹)</th>
+                {/* <th>FEE (₹)</th> */}
                 <th>FILE</th>
                 {stateColumns.map(state => (
                   <th key={state}>{state}</th>
@@ -521,7 +521,7 @@ const Dashboard = () => {
                               <span style={{ color: row.pending_calls > 0 ? '#eab308' : 'inherit' }}>{row.pending_calls || 0}</span>
                             )}
                           </td>
-                          <td>
+                          {/* <td>
                             {isEditMode ? (
                               <input 
                                 type="number" 
@@ -536,7 +536,7 @@ const Dashboard = () => {
                                 ₹{row.fee || 0}
                               </span>
                             )}
-                          </td>
+                          </td> */}
                           <td style={{ fontWeight: '600', color: 'var(--text-main)', textAlign: 'center' }}>
                             {stateColumns.reduce((sum, st) => sum + (row[st.toLowerCase()] || 0), 0)}
                           </td>
@@ -595,7 +595,7 @@ const Dashboard = () => {
                       <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{teamName} Total:</td>
                       <td>{totals.calls}</td>
                       <td style={{ color: '#eab308' }}>{totals.pending_calls}</td>
-                      <td style={{ color: '#22c55e', fontWeight: 'bold' }}>₹{totals.fee}</td>
+                      {/* <td style={{ color: '#22c55e', fontWeight: 'bold' }}>₹{totals.fee}</td> */}
                       <td>{totals.files}</td>
                       {stateColumns.map(st => (
                         <td key={st}>{totals[st.toLowerCase()] || 0}</td>
@@ -616,7 +616,7 @@ const Dashboard = () => {
                   {/* {grandTotals.calls} */}
                   </td>
                 <td style={{ fontWeight: 'bold', color: '#eab308' }}>{grandTotals.pending_calls}</td>
-                <td style={{ fontWeight: 'bold', color: '#22c55e' }}>₹{grandTotals.fee}</td>
+                {/* <td style={{ fontWeight: 'bold', color: '#22c55e' }}>₹{grandTotals.fee}</td> */}
                 <td style={{ fontWeight: 'bold' }}>{grandTotals.files}</td>
                 {stateColumns.map(st => (
                   <td key={st} style={{ fontWeight: 'bold' }}>{grandTotals[st.toLowerCase()] || 0}</td>
