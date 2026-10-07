@@ -610,9 +610,11 @@ const Dashboard = () => {
               {/* Grand Total Row */}
               <tr className="row-grand-total">
                 <td style={{ textAlign: 'right', color: 'var(--primary)', fontWeight: 'bold' }}>
-                  GRAND TOTAL:
+                  {/* GRAND TOTAL: */}
                 </td>
-                <td style={{ fontWeight: 'bold' }}>{grandTotals.calls}</td>
+                <td style={{ fontWeight: 'bold' }}>
+                  {/* {grandTotals.calls} */}
+                  </td>
                 <td style={{ fontWeight: 'bold', color: '#eab308' }}>{grandTotals.pending_calls}</td>
                 <td style={{ fontWeight: 'bold', color: '#22c55e' }}>₹{grandTotals.fee}</td>
                 <td style={{ fontWeight: 'bold' }}>{grandTotals.files}</td>
