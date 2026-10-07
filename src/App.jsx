@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import AdminSettings from './pages/AdminSettings';
@@ -13,8 +13,14 @@ import './index.css';
 
 // Simple layout wrapper for authenticated routes
 const AppLayout = ({ children }) => {
+  const navigate = useNavigate();
   const [agentsStatus, setAgentsStatus] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  const agentSessionStr = localStorage.getItem('agent_session');
+  const sessionData = agentSessionStr ? JSON.parse(agentSessionStr) : null;
+  const isLeader = sessionData?.role === 'leader' || sessionData?.isLeader;
+
 
   const fetchTodayStatus = useCallback(async () => {
     setLoading(true);
@@ -86,36 +92,57 @@ const AppLayout = ({ children }) => {
     return () => clearInterval(interval);
   }, [fetchTodayStatus]);
 
+  const handleLogout = async () => {
+    try {
+      localStorage.removeItem('agent_session');
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      navigate('/login');
+    }
+  };
+
   return (
     <div className="app-container">
       <aside className="sidebar" style={{ display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0 }}>
         <div>
           <h2 style={{ marginBottom: '2rem', color: 'var(--primary)' }}>Agent Dashboard</h2>
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <Link to="/dashboard" className="nav-link">
-              <LayoutDashboard size={20} />
-              Dashboard
-            </Link>
-            <Link to="/todays-agents" className="nav-link">
-              <Users size={20} />
-              Today's Agents
-            </Link>
-            <Link to="/data-entry" className="nav-link">
+            {!isLeader && (
+              <Link to="/dashboard" className="nav-link">
+                <LayoutDashboard size={20} />
+                Dashboard
+              </Link>
+            )}
+            {!isLeader && (
+              <Link to="/todays-agents" className="nav-link">
+                <Users size={20} />
+                Today's Agents
+              </Link>
+            )}
+            <Link to={isLeader ? "/leader-fee" : "/data-entry"} className="nav-link">
               <FileEdit size={20} />
-              Insert Data
+              {isLeader ? "Agent Fee Entry" : "Insert Data"}
             </Link>
-            <Link to="/performance" className="nav-link">
-              <BarChart2 size={20} />
-              Performance
-            </Link>
-            <Link to="/audit" className="nav-link">
-              <ClipboardCheck size={20} />
-              Audit Agent
-            </Link>
-            <Link to="/admin" className="nav-link">
-              <Settings size={20} />
-              Admin Settings
-            </Link>
+            {!isLeader && (
+              <Link to="/performance" className="nav-link">
+                <BarChart2 size={20} />
+                Performance
+              </Link>
+            )}
+            {!isLeader && (
+              <Link to="/audit" className="nav-link">
+                <ClipboardCheck size={20} />
+                Audit Agent
+              </Link>
+            )}
+            {!isLeader && (
+              <Link to="/admin" className="nav-link">
+                <Settings size={20} />
+                Admin Settings
+              </Link>
+            )}
           </nav>
         </div>
 
@@ -164,13 +191,7 @@ const AppLayout = ({ children }) => {
 
         <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
           <button 
-            onClick={async () => {
-              try {
-                await supabase.auth.signOut();
-              } catch (err) {
-                console.error('Logout error:', err);
-              }
-            }} 
+            onClick={handleLogout}
             className="nav-link" 
             style={{ 
               color: 'var(--error)', 
@@ -200,24 +221,30 @@ const AppLayout = ({ children }) => {
 };
 
 import AgentEntry from './pages/AgentEntry';
+import LeaderFeeEntry from './pages/LeaderFeeEntry';
 
-// ProtectedRoute checks if a user session exists in Supabase
+// ProtectedRoute checks if a user session exists in Supabase or localStorage
 const ProtectedRoute = ({ children }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check current active session
+    // Check local storage session first
+    const agentSessionStr = localStorage.getItem('agent_session');
+    
+    // Check current active Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+      setSession(session || (agentSessionStr ? JSON.parse(agentSessionStr) : null));
       setLoading(false);
     }).catch(() => {
+      setSession(agentSessionStr ? JSON.parse(agentSessionStr) : null);
       setLoading(false);
     });
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+      const currentAgentSession = localStorage.getItem('agent_session');
+      setSession(session || (currentAgentSession ? JSON.parse(currentAgentSession) : null));
       setLoading(false);
     });
 
@@ -241,7 +268,8 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  if (!session) {
+  const agentSessionStr = localStorage.getItem('agent_session');
+  if (!session && !agentSessionStr) {
     return <Navigate to="/login" replace />;
   }
 
@@ -269,6 +297,7 @@ function App() {
         <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
         <Route path="/todays-agents" element={<ProtectedRoute><AppLayout><TodaysAgents /></AppLayout></ProtectedRoute>} />
         <Route path="/data-entry" element={<ProtectedRoute><AppLayout><DataEntry /></AppLayout></ProtectedRoute>} />
+        <Route path="/leader-fee" element={<LeaderFeeEntry />} />
         <Route path="/performance" element={<ProtectedRoute><AppLayout><Performance /></AppLayout></ProtectedRoute>} />
         <Route path="/audit" element={<ProtectedRoute><AppLayout><AuditAgent /></AppLayout></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AppLayout><AdminSettings /></AppLayout></ProtectedRoute>} />

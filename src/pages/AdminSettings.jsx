@@ -83,20 +83,41 @@ const AdminSettings = () => {
   };
 
   const [newAgentPin, setNewAgentPin] = useState('2000');
+  const [newIsLeader, setNewIsLeader] = useState(false);
+  const [newLeaderPin, setNewLeaderPin] = useState('3000');
+
   const [editingAgentPin, setEditingAgentPin] = useState('');
+  const [editingIsLeader, setEditingIsLeader] = useState(false);
+  const [editingLeaderPin, setEditingLeaderPin] = useState('3000');
 
   const handleCreateAgent = async (e) => {
     e.preventDefault();
     try {
-      const { error } = await supabase.from('agents').insert([{ 
+      const payload = { 
         name: newAgentName, 
         team_id: selectedTeamId || null,
-        pin: newAgentPin || '2000'
-      }]);
-      if (error) throw error;
+        pin: newAgentPin || '2000',
+        is_leader: newIsLeader,
+        leader_pin: newLeaderPin || '3000'
+      };
+      
+      let { error } = await supabase.from('agents').insert([payload]);
+      
+      // Fallback if is_leader column isn't in DB yet
+      if (error && error.message?.includes('is_leader')) {
+        delete payload.is_leader;
+        delete payload.leader_pin;
+        const retryRes = await supabase.from('agents').insert([payload]);
+        if (retryRes.error) throw retryRes.error;
+      } else if (error) {
+        throw error;
+      }
+
       alert(`Agent "${newAgentName}" created successfully!`);
       setNewAgentName('');
       setNewAgentPin('2000');
+      setNewIsLeader(false);
+      setNewLeaderPin('3000');
       loadData();
     } catch (err) {
       alert(err.message);
@@ -106,15 +127,28 @@ const AdminSettings = () => {
   const handleUpdateAgent = async (agentId) => {
     if (!editingAgentName.trim()) return;
     try {
-      const { error } = await supabase
+      const payload = { 
+        name: editingAgentName, 
+        team_id: editingAgentTeamId || null,
+        pin: editingAgentPin || '2000',
+        is_leader: editingIsLeader,
+        leader_pin: editingLeaderPin || '3000'
+      };
+
+      let { error } = await supabase
         .from('agents')
-        .update({ 
-          name: editingAgentName, 
-          team_id: editingAgentTeamId || null,
-          pin: editingAgentPin || '2000'
-        })
+        .update(payload)
         .eq('id', agentId);
-      if (error) throw error;
+
+      if (error && error.message?.includes('is_leader')) {
+        delete payload.is_leader;
+        delete payload.leader_pin;
+        const retryRes = await supabase.from('agents').update(payload).eq('id', agentId);
+        if (retryRes.error) throw retryRes.error;
+      } else if (error) {
+        throw error;
+      }
+
       alert('Agent updated successfully!');
       setEditingAgentId(null);
       loadData();
@@ -319,15 +353,44 @@ const AdminSettings = () => {
                     required
                   />
                 </div>
+
+                <div className="input-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+                  <input 
+                    type="checkbox" 
+                    id="newIsLeader"
+                    checked={newIsLeader} 
+                    onChange={(e) => setNewIsLeader(e.target.checked)}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="newIsLeader" style={{ cursor: 'pointer', margin: 0, color: '#eab308', fontWeight: 'bold' }}>
+                    Mark as Team Leader? ⭐
+                  </label>
+                </div>
+
+                {newIsLeader && (
+                  <div className="input-group">
+                    <label style={{ color: '#eab308' }}>Team Leader PIN</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="Default: 3000" 
+                      value={newLeaderPin}
+                      onChange={(e) => setNewLeaderPin(e.target.value)}
+                      style={{ borderColor: '#eab308' }}
+                      required
+                    />
+                  </div>
+                )}
+
                 <button type="submit" className="btn btn-primary">Create Agent</button>
               </form>
 
               <h3>Registered Agents</h3>
-              <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+              <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
                 {agentsList.map(a => {
                   const isEditing = editingAgentId === a.id;
                   return (
-                    <div key={a.id} style={{ padding: '1rem', backgroundColor: 'var(--glass-bg)', border: '1px solid var(--border-color)', borderRadius: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '0.75rem' }}>
+                    <div key={a.id} style={{ padding: '1rem', backgroundColor: 'var(--glass-bg)', border: `1px solid ${a.is_leader ? '#eab308' : 'var(--border-color)'}`, borderRadius: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '0.75rem' }}>
                       {isEditing ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                           <input 
@@ -355,8 +418,28 @@ const AdminSettings = () => {
                             value={editingAgentPin} 
                             onChange={(e) => setEditingAgentPin(e.target.value)} 
                             style={{ margin: 0, padding: '0.25rem 0.5rem', fontSize: '0.85rem' }} 
-                            placeholder="PIN (Default: 2000)"
+                            placeholder="Agent PIN (Default: 2000)"
                           />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.25rem 0' }}>
+                            <input 
+                              type="checkbox" 
+                              id={`editIsLeader-${a.id}`}
+                              checked={editingIsLeader} 
+                              onChange={(e) => setEditingIsLeader(e.target.checked)}
+                              style={{ width: '16px', height: '16px' }}
+                            />
+                            <label htmlFor={`editIsLeader-${a.id}`} style={{ fontSize: '0.8rem', color: '#eab308', fontWeight: 'bold' }}>Is Team Leader?</label>
+                          </div>
+                          {editingIsLeader && (
+                            <input 
+                              type="text" 
+                              className="input-field" 
+                              value={editingLeaderPin} 
+                              onChange={(e) => setEditingLeaderPin(e.target.value)} 
+                              style={{ margin: 0, padding: '0.25rem 0.5rem', fontSize: '0.85rem', borderColor: '#eab308' }} 
+                              placeholder="Leader PIN (Default: 3000)"
+                            />
+                          )}
                           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
                             <button onClick={() => handleUpdateAgent(a.id)} className="btn btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', flex: 1 }}>Save</button>
                             <button onClick={() => setEditingAgentId(null)} className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', flex: 1 }}>Cancel</button>
@@ -365,9 +448,15 @@ const AdminSettings = () => {
                       ) : (
                         <>
                           <div>
-                            <div style={{ fontWeight: '600' }}>{a.name}</div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Team: {a.teams?.name || 'None'}</div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0.25rem' }}>PIN: {a.pin || '2000'}</div>
+                            <div style={{ fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span>{a.name}</span>
+                              {a.is_leader && <span style={{ fontSize: '0.75rem', backgroundColor: 'rgba(234,179,8,0.2)', color: '#eab308', padding: '2px 6px', borderRadius: '4px' }}>Leader</span>}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Team: {a.teams?.name || 'None'}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0.25rem' }}>Agent PIN: {a.pin || '2000'}</div>
+                            {a.is_leader && (
+                              <div style={{ fontSize: '0.8rem', color: '#eab308', marginTop: '0.1rem' }}>Leader PIN: {a.leader_pin || '3000'}</div>
+                            )}
                           </div>
                           <div style={{ display: 'flex', gap: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.5rem' }}>
                             <button 
@@ -375,7 +464,9 @@ const AdminSettings = () => {
                                 setEditingAgentId(a.id); 
                                 setEditingAgentName(a.name); 
                                 setEditingAgentTeamId(a.team_id || ''); 
-                                setEditingAgentPin(a.pin || '2000'); 
+                                setEditingAgentPin(a.pin || '2000');
+                                setEditingIsLeader(!!a.is_leader);
+                                setEditingLeaderPin(a.leader_pin || '3000');
                               }} 
                               className="btn btn-secondary" 
                               style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', flex: 1 }}

@@ -30,8 +30,9 @@ const DataEntry = () => {
       (data || []).forEach(agent => {
         initialGrid[agent.id] = {
           calls: 0,
+          pending_calls: 0,
+          fee: 0,
           files: 0,
-          entry: 0,
           is_leave: false,
           pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0
         };
@@ -63,8 +64,9 @@ const DataEntry = () => {
         agentsList.forEach(agent => {
           resetGrid[agent.id] = {
             calls: 0,
+            pending_calls: 0,
+            fee: 0,
             files: 0,
-            entry: 0,
             is_leave: false,
             pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0
           };
@@ -76,8 +78,9 @@ const DataEntry = () => {
             if (resetGrid[item.agent_id]) {
               resetGrid[item.agent_id] = {
                 calls: item.calls || 0,
+                pending_calls: item.pending_calls || 0,
+                fee: item.fee || 0,
                 files: item.files || 0,
-                entry: item.entry || 0,
                 is_leave: item.is_leave || false,
                 pb: item.pb || 0,
                 hr: item.hr || 0,
@@ -107,7 +110,7 @@ const DataEntry = () => {
     setGridData(prev => {
       const updatedRow = { ...prev[agentId], [field]: value };
       
-      // Auto-calculate files and entry if any state column changes
+      // Auto-calculate files if any state column changes
       if (stateColumns.map(s => s.toLowerCase()).includes(field)) {
         const sum = stateColumns.reduce((acc, st) => {
           const colName = st.toLowerCase();
@@ -115,9 +118,6 @@ const DataEntry = () => {
           return acc + (parseInt(val) || 0);
         }, 0);
         updatedRow.files = sum;
-        if (field !== 'entry') {
-          updatedRow.entry = sum;
-        }
       }
       
       return {
@@ -133,8 +133,9 @@ const DataEntry = () => {
       const updatedRow = { ...prev[agentId], is_leave: isChecked };
       if (isChecked) {
         updatedRow.calls = 0;
+        updatedRow.pending_calls = 0;
+        updatedRow.fee = 0;
         updatedRow.files = 0;
-        updatedRow.entry = 0;
         stateColumns.forEach(st => {
           updatedRow[st.toLowerCase()] = 0;
         });
@@ -181,16 +182,13 @@ const DataEntry = () => {
         });
 
         if (matchedAgent) {
-          const hasEntryCol = cols.length > 13;
           const calls = parseInt(cols[1]) || 0;
-          const entryVal = hasEntryCol ? (parseInt(cols[3]) || 0) : 0;
-          const is_leave = hasEntryCol 
-            ? (cols[13]?.toLowerCase() === 'true' || cols[13] === '1')
-            : (cols[12]?.toLowerCase() === 'true' || cols[12] === '1');
+          const pending_calls = parseInt(cols[2]) || 0;
+          const fee = parseFloat(cols[3]) || 0;
 
           const stateValues = {};
           let stateSum = 0;
-          const stateStartIdx = hasEntryCol ? 4 : 3;
+          const stateStartIdx = 4;
           stateColumns.forEach((st, sIdx) => {
             const val = parseInt(cols[stateStartIdx + sIdx]) || 0;
             stateValues[st.toLowerCase()] = val;
@@ -201,9 +199,10 @@ const DataEntry = () => {
           updatedGrid[matchedAgent.id] = {
             ...prevRow,
             calls,
-            entry: hasEntryCol ? entryVal : stateSum,
+            pending_calls,
+            fee,
             files: stateSum,
-            is_leave,
+            is_leave: false,
             ...stateValues
           };
           matchCount++;
@@ -249,8 +248,9 @@ const DataEntry = () => {
           agent_id: agentId,
           date: entryDate,
           calls: parseInt(row.calls) || 0,
+          pending_calls: parseInt(row.pending_calls) || 0,
+          fee: parseFloat(row.fee) || 0,
           files: calculatedFiles,
-          entry: parseInt(row.entry) || calculatedFiles,
           is_leave: !!row.is_leave,
           pb: parseInt(row.pb) || 0,
           hr: parseInt(row.hr) || 0,
@@ -269,7 +269,6 @@ const DataEntry = () => {
         .from('daily_entries')
         .upsert(entries, { onConflict: 'agent_id,date' });
 
-      // If 'mh' column is missing in Supabase table schema, retry without 'mh'
       if (dailyErr && dailyErr.message?.includes("'mh'")) {
         console.warn("'mh' column missing in Supabase daily_entries table. Retrying without 'mh'...");
         const entriesWithoutMh = entries.map(({ mh, ...rest }) => rest);
@@ -280,7 +279,7 @@ const DataEntry = () => {
         if (retryRes.error) {
           throw retryRes.error;
         } else {
-          alert(`Daily entries saved successfully!\n\nNote: 'mh' column does not exist in your Supabase 'daily_entries' table yet. Run this SQL in Supabase SQL Editor to support 'MH' state:\n\nALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS mh INTEGER DEFAULT 0;`);
+          alert(`Daily entries saved successfully!`);
           dailyErr = null;
         }
       } else if (dailyErr) {
@@ -326,7 +325,7 @@ const DataEntry = () => {
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
             Copy your rows from Excel or Google Sheets, paste them here, and click Parse. Values will be loaded below for review.
             <br />
-            <span style={{ color: 'var(--text-main)' }}>Columns: Agent | Calls | Entry | PB | HR | JK | HP | MP | RJ | UP | BR | MH | Others | Leave</span>
+            <span style={{ color: 'var(--text-main)' }}>Columns: Agent | Calls | Pending | Fee | PB | HR | JK | HP | MP | RJ | UP | BR | MH | Others</span>
           </p>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <textarea 
@@ -410,7 +409,8 @@ const DataEntry = () => {
                     <th style={{ minWidth: '150px' }}>Agent (Team)</th>
                     <th>Leave?</th>
                     <th>Calls</th>
-                    <th>Entry</th>
+                    <th>Pending</th>
+                    <th>Fee (₹)</th>
                     <th>File (Sum)</th>
                     {stateColumns.map(st => <th key={st}>{st}</th>)}
                   </tr>
@@ -438,7 +438,7 @@ const DataEntry = () => {
                           <input 
                             type="number"
                             className="input-field"
-                            style={{ width: '70px', padding: '0.25rem', textAlign: 'center' }}
+                            style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
                             value={row.calls || 0}
                             onChange={(e) => handleCellChange(agent.id, 'calls', parseInt(e.target.value) || 0)}
                             disabled={row.is_leave}
@@ -448,9 +448,19 @@ const DataEntry = () => {
                           <input 
                             type="number"
                             className="input-field"
-                            style={{ width: '70px', padding: '0.25rem', textAlign: 'center' }}
-                            value={row.entry || 0}
-                            onChange={(e) => handleCellChange(agent.id, 'entry', parseInt(e.target.value) || 0)}
+                            style={{ width: '60px', padding: '0.25rem', textAlign: 'center', borderColor: '#eab308' }}
+                            value={row.pending_calls || 0}
+                            onChange={(e) => handleCellChange(agent.id, 'pending_calls', parseInt(e.target.value) || 0)}
+                            disabled={row.is_leave}
+                          />
+                        </td>
+                        <td>
+                          <input 
+                            type="number"
+                            className="input-field"
+                            style={{ width: '70px', padding: '0.25rem', textAlign: 'center', borderColor: '#22c55e' }}
+                            value={row.fee || 0}
+                            onChange={(e) => handleCellChange(agent.id, 'fee', parseFloat(e.target.value) || 0)}
                             disabled={row.is_leave}
                           />
                         </td>

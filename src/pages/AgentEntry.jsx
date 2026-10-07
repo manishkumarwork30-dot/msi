@@ -24,6 +24,7 @@ const AgentEntry = () => {
 
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [calls, setCalls] = useState('');
+  const [pendingCalls, setPendingCalls] = useState('');
   const [isLeave, setIsLeave] = useState(false);
   const [stateValues, setStateValues] = useState({
     pb: '', hr: '', jk: '', hp: '', mp: '', rj: '', up: '', br: '', nk: '', mh: '', others: ''
@@ -33,6 +34,7 @@ const AgentEntry = () => {
   const [fetchingExisting, setFetchingExisting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved'
 
   // Check login session on mount
   useEffect(() => {
@@ -78,6 +80,7 @@ const AgentEntry = () => {
 
         if (data) {
           setCalls(data.calls || 0);
+          setPendingCalls(data.pending_calls || 0);
           setIsLeave(!!data.is_leave);
           const loadedStates = {};
           STATE_KEYS.forEach(k => {
@@ -87,6 +90,7 @@ const AgentEntry = () => {
         } else {
           // Reset form for fresh entry
           setCalls('');
+          setPendingCalls('');
           setIsLeave(false);
           const resetStates = {};
           STATE_KEYS.forEach(k => { resetStates[k] = ''; });
@@ -118,7 +122,7 @@ const AgentEntry = () => {
     e.preventDefault();
     if (!agentSession?.id) return;
 
-    setLoading(true);
+    setSaveStatus('saving');
     setSuccessMsg('');
     setErrorMsg('');
 
@@ -127,6 +131,7 @@ const AgentEntry = () => {
         agent_id: agentSession.id,
         date,
         calls: isLeave ? 0 : (parseInt(calls, 10) || 0),
+        pending_calls: isLeave ? 0 : (parseInt(pendingCalls, 10) || 0),
         files: totalEntry,
         entry: totalEntry,
         is_leave: isLeave,
@@ -142,13 +147,16 @@ const AgentEntry = () => {
 
       if (error) throw error;
 
-      setSuccessMsg('Data successfully saved!');
-      setTimeout(() => setSuccessMsg(''), 4000);
+      setSaveStatus('saved');
+      setSuccessMsg('Database mei save ho gya hai!');
+      setTimeout(() => {
+        setSuccessMsg('');
+        setSaveStatus('idle');
+      }, 4000);
     } catch (err) {
       console.error('Error saving entry:', err);
       setErrorMsg(err.message || 'Failed to save entry. Please try again.');
-    } finally {
-      setLoading(false);
+      setSaveStatus('idle');
     }
   };
 
@@ -307,6 +315,23 @@ const AgentEntry = () => {
                 />
               </div>
 
+              {/* Pending Calls Input Field */}
+              <div className="input-group" style={{ marginBottom: '1.25rem' }}>
+                <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <PhoneCall size={15} color="#eab308" /> Pending Calls
+                </label>
+                <input 
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  className="input-field" 
+                  placeholder="e.g. 10"
+                  value={pendingCalls}
+                  onChange={(e) => setPendingCalls(e.target.value)}
+                  style={{ fontSize: '1.1rem', padding: '0.75rem' }}
+                />
+              </div>
+
               {/* Total Calculated Live Sum Card */}
               <div style={{ 
                 backgroundColor: 'rgba(74, 222, 128, 0.08)', 
@@ -354,11 +379,25 @@ const AgentEntry = () => {
           {/* Submit Button */}
           <button 
             type="submit" 
-            className="btn btn-primary" 
-            style={{ width: '100%', padding: '0.85rem', fontSize: '1.05rem', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}
-            disabled={loading}
+            className={`btn ${saveStatus === 'saved' ? '' : 'btn-primary'}`} 
+            style={{ 
+              width: '100%', 
+              padding: '0.85rem', 
+              fontSize: '1.05rem', 
+              fontWeight: 'bold', 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              gap: '0.5rem',
+              backgroundColor: saveStatus === 'saved' ? '#22c55e' : undefined,
+              color: saveStatus === 'saved' ? '#fff' : undefined,
+              transition: 'all 0.3s ease'
+            }}
+            disabled={saveStatus === 'saving'}
           >
-            {loading ? 'Saving Data...' : (isLeave ? 'Submit Leave Status' : 'Save Daily Data')}
+            {saveStatus === 'saving' ? 'Saving to Database...' : 
+             saveStatus === 'saved' ? '✔ Saved in Database' : 
+             (isLeave ? 'Submit Leave Status' : 'Save Daily Data')}
           </button>
         </form>
 

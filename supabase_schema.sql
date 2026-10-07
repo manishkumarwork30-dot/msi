@@ -110,6 +110,29 @@ BEFORE INSERT OR UPDATE ON public.daily_entries
 FOR EACH ROW
 EXECUTE FUNCTION public.set_daily_entries_updated_at();
 
+-- Migration: Add pending_calls and fee to daily_entries, and leader fields to agents
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS pending_calls INTEGER DEFAULT 0;
+ALTER TABLE public.daily_entries ADD COLUMN IF NOT EXISTS fee NUMERIC DEFAULT 0;
+ALTER TABLE public.agents ADD COLUMN IF NOT EXISTS is_leader BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.agents ADD COLUMN IF NOT EXISTS leader_pin TEXT DEFAULT '3000';
 
+-- Seed Script: Create default Teams and default Team Leaders for UT, ARR, IND, MS2
+INSERT INTO public.teams (name) VALUES ('UT'), ('ARR'), ('IND'), ('MS2') ON CONFLICT (name) DO NOTHING;
 
+-- Insert default Team Leader agents if they don't exist yet
+INSERT INTO public.agents (name, team_id, pin, is_leader, leader_pin)
+SELECT 'UT Leader', id, '2000', TRUE, '3000' FROM public.teams WHERE name = 'UT'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.agents (name, team_id, pin, is_leader, leader_pin)
+SELECT 'ARR Leader', id, '2000', TRUE, '3000' FROM public.teams WHERE name = 'ARR'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.agents (name, team_id, pin, is_leader, leader_pin)
+SELECT 'IND Leader', id, '2000', TRUE, '3000' FROM public.teams WHERE name = 'IND'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.agents (name, team_id, pin, is_leader, leader_pin)
+SELECT 'MS2 Leader', id, '2000', TRUE, '3000' FROM public.teams WHERE name = 'MS2'
+ON CONFLICT DO NOTHING;
 

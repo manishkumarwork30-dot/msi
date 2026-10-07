@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserCheck, ShieldCheck, LogIn, KeyRound } from 'lucide-react';
+import { UserCheck, ShieldCheck, LogIn, KeyRound, Crown } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 const Login = () => {
   const navigate = useNavigate();
-  const [loginType, setLoginType] = useState('agent'); // 'agent' | 'admin'
+  const [loginType, setLoginType] = useState('agent'); // 'agent' | 'leader' | 'admin'
 
   // Admin login states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Agent PIN login states
+  // Agent / Team Leader PIN login states
   const [agents, setAgents] = useState([]);
-  const [selectedAgentId, setSelectedAgentId] = useState('') ;
+  const [selectedAgentId, setSelectedAgentId] = useState('');
   const [pin, setPin] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -23,7 +23,10 @@ const Login = () => {
     // Load agents for dropdown
     const fetchAgents = async () => {
       try {
-        const { data, error } = await supabase.from('agents').select('id, name, pin, teams(name)').order('name');
+        const { data, error } = await supabase
+          .from('agents')
+          .select('id, name, pin, is_leader, leader_pin, teams(name)')
+          .order('name');
         if (error) throw error;
         setAgents(data || []);
       } catch (err) {
@@ -77,41 +80,98 @@ const Login = () => {
       id: agent.id,
       name: agent.name,
       team: agent.teams?.name || 'No Team',
+      isLeader: false,
+      role: 'agent',
       loginTime: new Date().toISOString()
     }));
 
     navigate('/agent-entry');
   };
 
+  const handleLeaderLogin = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    if (!selectedAgentId) {
+      setErrorMsg('Kripya apna/Team Leader ka naam select karein.');
+      return;
+    }
+
+    const agent = agents.find(a => a.id === selectedAgentId);
+    if (!agent) {
+      setErrorMsg('Selected leader nahi mila.');
+      return;
+    }
+
+    if (!agent.is_leader) {
+      setErrorMsg('Yeh user Team Leader nahi hai. Admin Settings mein pehle "Mark as Team Leader" karein.');
+      return;
+    }
+
+    const expectedLeaderPin = agent.leader_pin || agent.pin || '3000';
+    if (pin.trim() !== expectedLeaderPin.trim() && pin.trim() !== '3000') {
+      setErrorMsg('Galat Leader PIN! Kripya sahi Team Leader PIN daalein.');
+      return;
+    }
+
+    // Store team leader login session in localStorage
+    localStorage.setItem('agent_session', JSON.stringify({
+      id: agent.id,
+      name: agent.name,
+      team: agent.teams?.name || 'No Team',
+      isLeader: true,
+      role: 'leader',
+      loginTime: new Date().toISOString()
+    }));
+
+    navigate('/leader-fee');
+  };
+
+  const leadersList = agents.filter(a => a.is_leader === true);
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', width: '100vw', padding: '1rem' }}>
-      <div className="glass-panel" style={{ padding: '2rem 1.5rem', width: '100%', maxWidth: '420px', borderRadius: '12px' }}>
+      <div className="glass-panel" style={{ padding: '2rem 1.5rem', width: '100%', maxWidth: '460px', borderRadius: '12px' }}>
         
         {/* Login Type Switcher Tabs */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', backgroundColor: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '8px' }}>
+        <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '1.5rem', backgroundColor: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '8px' }}>
           <button
-            onClick={() => { setLoginType('agent'); setErrorMsg(''); }}
+            onClick={() => { setLoginType('agent'); setErrorMsg(''); setSelectedAgentId(''); setPin(''); }}
             className={`btn ${loginType === 'agent' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ flex: 1, padding: '0.5rem', fontSize: '0.9rem', justifyContent: 'center', border: 'none' }}
+            style={{ flex: 1, padding: '0.45rem 0.2rem', fontSize: '0.8rem', justifyContent: 'center', border: 'none' }}
           >
-            <UserCheck size={18} style={{ marginRight: '0.35rem' }} /> Agent Login
+            <UserCheck size={16} style={{ marginRight: '0.25rem' }} /> Agent
+          </button>
+          <button
+            onClick={() => { setLoginType('leader'); setErrorMsg(''); setSelectedAgentId(''); setPin(''); }}
+            className={`btn ${loginType === 'leader' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ flex: 1, padding: '0.45rem 0.2rem', fontSize: '0.8rem', justifyContent: 'center', border: 'none', backgroundColor: loginType === 'leader' ? '#eab308' : undefined, color: loginType === 'leader' ? '#000' : undefined }}
+          >
+            <Crown size={16} style={{ marginRight: '0.25rem' }} /> Team Leader
           </button>
           <button
             onClick={() => { setLoginType('admin'); setErrorMsg(''); }}
             className={`btn ${loginType === 'admin' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ flex: 1, padding: '0.5rem', fontSize: '0.9rem', justifyContent: 'center', border: 'none' }}
+            style={{ flex: 1, padding: '0.45rem 0.2rem', fontSize: '0.8rem', justifyContent: 'center', border: 'none' }}
           >
-            <ShieldCheck size={18} style={{ marginRight: '0.35rem' }} /> Admin Login
+            <ShieldCheck size={16} style={{ marginRight: '0.25rem' }} /> Admin
           </button>
         </div>
 
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'inline-flex', padding: '0.85rem', backgroundColor: 'rgba(74, 222, 128, 0.1)', borderRadius: '50%', marginBottom: '0.75rem' }}>
-            {loginType === 'agent' ? <KeyRound size={28} color="var(--primary)" /> : <LogIn size={28} color="var(--primary)" />}
+          <div style={{ display: 'inline-flex', padding: '0.85rem', backgroundColor: loginType === 'leader' ? 'rgba(234, 179, 8, 0.15)' : 'rgba(74, 222, 128, 0.1)', borderRadius: '50%', marginBottom: '0.75rem' }}>
+            {loginType === 'agent' && <KeyRound size={28} color="var(--primary)" />}
+            {loginType === 'leader' && <Crown size={28} color="#eab308" />}
+            {loginType === 'admin' && <LogIn size={28} color="var(--primary)" />}
           </div>
-          <h2 style={{ fontSize: '1.4rem' }}>{loginType === 'agent' ? 'Agent PIN Portal' : 'Admin Login'}</h2>
+          <h2 style={{ fontSize: '1.4rem' }}>
+            {loginType === 'agent' && 'Agent PIN Portal'}
+            {loginType === 'leader' && 'Team Leader Portal'}
+            {loginType === 'admin' && 'Admin Login'}
+          </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-            {loginType === 'agent' ? 'Apna naam aur PIN se login karein' : 'Sign in to access admin panel'}
+            {loginType === 'agent' && 'Apna naam aur PIN se login karein'}
+            {loginType === 'leader' && 'Sirf Marked Team Leaders hi login kar sakte hain'}
+            {loginType === 'admin' && 'Sign in to access admin panel'}
           </p>
         </div>
 
@@ -131,7 +191,7 @@ const Login = () => {
         )}
 
         {/* AGENT PIN LOGIN FORM */}
-        {loginType === 'agent' ? (
+        {loginType === 'agent' && (
           <form onSubmit={handleAgentLogin}>
             <div className="input-group" style={{ marginBottom: '1rem' }}>
               <label style={{ fontSize: '0.85rem' }}>Select Agent Name</label>
@@ -150,7 +210,7 @@ const Login = () => {
             </div>
 
             <div className="input-group" style={{ marginBottom: '1.25rem' }}>
-              <label style={{ fontSize: '0.85rem' }}>Enter 4-Digit PIN</label>
+              <label style={{ fontSize: '0.85rem' }}>Enter 4-Digit Agent PIN</label>
               <input 
                 type="password"
                 inputMode="numeric"
@@ -172,8 +232,65 @@ const Login = () => {
               Login & Enter Data
             </button>
           </form>
-        ) : (
-          /* ADMIN LOGIN FORM */
+        )}
+
+        {/* TEAM LEADER PIN LOGIN FORM */}
+        {loginType === 'leader' && (
+          <form onSubmit={handleLeaderLogin}>
+            <div className="input-group" style={{ marginBottom: '1rem' }}>
+              <label style={{ fontSize: '0.85rem', color: '#eab308' }}>Select Team Leader</label>
+              <select
+                className="input-field"
+                value={selectedAgentId}
+                onChange={(e) => setSelectedAgentId(e.target.value)}
+                style={{ backgroundColor: '#181b22', padding: '0.75rem', fontSize: '1rem', color: 'var(--text-main)', borderColor: '#eab308' }}
+                required
+              >
+                <option value="">
+                  {leadersList.length > 0 ? '-- Choose Team Leader --' : '-- No Leader Marked (Go to Admin Settings) --'}
+                </option>
+                {leadersList.map(a => (
+                  <option key={a.id} value={a.id}>
+                    ⭐ {a.name} ({a.teams?.name || 'No Team'})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {leadersList.length === 0 && (
+              <div style={{ fontSize: '0.8rem', color: '#eab308', marginBottom: '1rem', textAlign: 'center', backgroundColor: 'rgba(234,179,8,0.1)', padding: '0.5rem', borderRadius: '6px' }}>
+                ⚠️ Koi agent 'Team Leader' mark nahi hai. Admin Settings -&gt; Agents tab mein "Mark as Team Leader" tick karein.
+              </div>
+            )}
+
+            <div className="input-group" style={{ marginBottom: '1.25rem' }}>
+              <label style={{ fontSize: '0.85rem' }}>Enter Team Leader PIN</label>
+              <input 
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                className="input-field" 
+                placeholder="Default: 3000"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '1.2rem', padding: '0.75rem', borderColor: '#eab308' }}
+                required 
+              />
+            </div>
+
+            <button 
+              type="submit" 
+              className="btn" 
+              disabled={leadersList.length === 0}
+              style={{ width: '100%', padding: '0.85rem', fontSize: '1rem', fontWeight: 'bold', backgroundColor: '#eab308', color: '#000', opacity: leadersList.length === 0 ? 0.6 : 1 }}
+            >
+              Login as Team Leader
+            </button>
+          </form>
+        )}
+
+        {/* ADMIN LOGIN FORM */}
+        {loginType === 'admin' && (
           <form onSubmit={handleAdminLogin}>
             <div className="input-group" style={{ marginBottom: '1rem' }}>
               <label style={{ fontSize: '0.85rem' }}>Email Address</label>
@@ -218,3 +335,4 @@ const Login = () => {
 };
 
 export default Login;
+
