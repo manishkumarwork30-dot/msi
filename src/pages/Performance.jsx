@@ -68,7 +68,26 @@ const Performance = () => {
   const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [startDate, setStartDate] = useState(getLocalDateString(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
   const [endDate, setEndDate] = useState(getLocalDateString());
-  const [selectedMonth, setSelectedMonth] = useState(getLocalDateString().slice(0, 7)); // YYYY-MM
+  const [selectedMonth, setSelectedMonth] = useState(getLocalDateString().slice(0, 7));
+
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    const weekNo = Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
+    return `${d.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+  });
+
+  const getWeekRange = (weekStr) => {
+    if (!weekStr) return { start: '', end: '' };
+    const year = parseInt(weekStr.substring(0, 4));
+    const week = parseInt(weekStr.substring(6, 8));
+    const jan4 = new Date(year, 0, 4);
+    const start = new Date(jan4.getTime() - ((jan4.getDay() || 7) - 1) * 86400000 + (week - 1) * 7 * 86400000);
+    const end = new Date(start.getTime() + 6 * 86400000);
+    return { start: getLocalDateString(start), end: getLocalDateString(end) };
+  };
+ // YYYY-MM
 
   const [agentEntries, setAgentEntries] = useState([]);
   const [teamSummary, setTeamSummary] = useState([]);
@@ -93,6 +112,7 @@ const Performance = () => {
     setEditingRowId(entry.id);
     setEditingValues({
       calls: entry.calls || 0,
+      fee: entry.fee || 0,
       files: entry.files || 0,
       entry: entry.entry || 0,
       is_leave: entry.is_leave || false,
@@ -123,6 +143,7 @@ const Performance = () => {
         .from('daily_entries')
         .update({
           calls: editingValues.calls,
+          fee: editingValues.fee,         // fee = integer count (separate from files)
           files: editingValues.files,
           entry: editingValues.entry,
           is_leave: editingValues.is_leave,
@@ -142,7 +163,6 @@ const Performance = () => {
       if (error) throw error;
       setEditingRowId(null);
       setTriggerRefresh(prev => !prev);
-      alert('Entry updated successfully!');
     } catch (err) {
       console.error('Error updating entry:', err);
       alert('Error updating entry: ' + err.message);
@@ -184,6 +204,9 @@ const Performance = () => {
           query = query.eq('date', selectedDate);
         } else if (filterType === 'range') {
           query = query.gte('date', startDate).lte('date', endDate);
+        } else if (filterType === 'week') {
+          const { start, end } = getWeekRange(selectedWeek);
+          query = query.gte('date', start).lte('date', end);
         } else if (filterType === 'month') {
           const year = parseInt(selectedMonth.split('-')[0], 10);
           const month = parseInt(selectedMonth.split('-')[1], 10);
@@ -202,6 +225,9 @@ const Performance = () => {
           targetMonth = selectedDate.substring(0, 7);
         } else if (filterType === 'range') {
           targetMonth = endDate.substring(0, 7);
+        } else if (filterType === 'week') {
+          const { end } = getWeekRange(selectedWeek);
+          targetMonth = end.substring(0, 7);
         } else if (filterType === 'month') {
           targetMonth = selectedMonth;
         }
@@ -245,6 +271,10 @@ const Performance = () => {
         } else if (filterType === 'range') {
           start = startDate;
           end = endDate;
+        } else if (filterType === 'week') {
+          const wRange = getWeekRange(selectedWeek);
+          start = wRange.start;
+          end = wRange.end;
         } else if (filterType === 'month') {
           const year = parseInt(selectedMonth.split('-')[0], 10);
           const month = parseInt(selectedMonth.split('-')[1], 10);
@@ -266,6 +296,9 @@ const Performance = () => {
         if (filterType === 'single') {
           targetMonth = selectedDate.substring(0, 7);
         } else if (filterType === 'range') {
+          targetMonth = end.substring(0, 7);
+        } else if (filterType === 'week') {
+          const { end } = getWeekRange(selectedWeek);
           targetMonth = end.substring(0, 7);
         } else if (filterType === 'month') {
           targetMonth = selectedMonth;
@@ -304,6 +337,7 @@ const Performance = () => {
           const entryMonth = entryDate.substring(0, 7); // YYYY-MM
           
           let calls = entry.calls || 0;
+          let fee = entry.fee || 0;
           let files = entry.files || 0;
           let incomingDuration = entry.incoming_duration || 0;
           let outgoingDuration = entry.outgoing_duration || 0;
@@ -323,6 +357,7 @@ const Performance = () => {
             summaryMap[teamName] = {
               name: teamName,
               totalCalls: 0,
+              totalFee: 0,
               totalFiles: 0,
               incomingDuration: 0,
               outgoingDuration: 0,
@@ -335,6 +370,7 @@ const Performance = () => {
             };
           }
           summaryMap[teamName].totalCalls += calls;
+          summaryMap[teamName].totalFee += fee;
           summaryMap[teamName].totalFiles += files;
           summaryMap[teamName].incomingDuration += incomingDuration;
           summaryMap[teamName].outgoingDuration += outgoingDuration;
@@ -348,6 +384,7 @@ const Performance = () => {
             summaryMap[teamName].agents[agentName] = {
               name: agentName,
               calls: 0,
+              fee: 0,
               files: 0,
               incomingDuration: 0,
               outgoingDuration: 0,
@@ -359,6 +396,7 @@ const Performance = () => {
             };
           }
           summaryMap[teamName].agents[agentName].calls += calls;
+          summaryMap[teamName].agents[agentName].fee += fee;
           summaryMap[teamName].agents[agentName].files += files;
           summaryMap[teamName].agents[agentName].incomingDuration += incomingDuration;
           summaryMap[teamName].agents[agentName].outgoingDuration += outgoingDuration;
@@ -375,6 +413,7 @@ const Performance = () => {
               date: entryDate,
               teamName: teamName,
               calls: 0,
+              fee: 0,
               files: 0,
               incomingDuration: 0,
               outgoingDuration: 0,
@@ -385,6 +424,7 @@ const Performance = () => {
             };
           }
           dateSummaryMap[dateKey].calls += calls;
+          dateSummaryMap[dateKey].fee += fee;
           dateSummaryMap[dateKey].files += files;
           dateSummaryMap[dateKey].incomingDuration += incomingDuration;
           dateSummaryMap[dateKey].outgoingDuration += outgoingDuration;
@@ -398,6 +438,7 @@ const Performance = () => {
             dateSummaryMap[dateKey].agents[agentName] = {
               name: agentName,
               calls: 0,
+              fee: 0,
               files: 0,
               incomingDuration: 0,
               outgoingDuration: 0,
@@ -407,6 +448,7 @@ const Performance = () => {
             };
           }
           dateSummaryMap[dateKey].agents[agentName].calls += calls;
+          dateSummaryMap[dateKey].agents[agentName].fee += fee;
           dateSummaryMap[dateKey].agents[agentName].files += files;
           dateSummaryMap[dateKey].agents[agentName].incomingDuration += incomingDuration;
           dateSummaryMap[dateKey].agents[agentName].outgoingDuration += outgoingDuration;
@@ -423,6 +465,7 @@ const Performance = () => {
               month: entryMonth,
               teamName: teamName,
               calls: 0,
+              fee: 0,
               files: 0,
               incomingDuration: 0,
               outgoingDuration: 0,
@@ -433,6 +476,7 @@ const Performance = () => {
             };
           }
           monthSummaryMap[monthKey].calls += calls;
+          monthSummaryMap[monthKey].fee += fee;
           monthSummaryMap[monthKey].files += files;
           monthSummaryMap[monthKey].incomingDuration += incomingDuration;
           monthSummaryMap[monthKey].outgoingDuration += outgoingDuration;
@@ -446,6 +490,7 @@ const Performance = () => {
             monthSummaryMap[monthKey].agents[agentName] = {
               name: agentName,
               calls: 0,
+              fee: 0,
               files: 0,
               incomingDuration: 0,
               outgoingDuration: 0,
@@ -455,6 +500,7 @@ const Performance = () => {
             };
           }
           monthSummaryMap[monthKey].agents[agentName].calls += calls;
+          monthSummaryMap[monthKey].agents[agentName].fee += fee;
           monthSummaryMap[monthKey].agents[agentName].files += files;
           monthSummaryMap[monthKey].agents[agentName].incomingDuration += incomingDuration;
           monthSummaryMap[monthKey].agents[agentName].outgoingDuration += outgoingDuration;
@@ -493,6 +539,7 @@ const Performance = () => {
   const teamSummaryTotals = useMemo(() => {
     return teamSummary.reduce((acc, curr) => {
       acc.totalCalls += curr.totalCalls || 0;
+      acc.totalFee += curr.totalFee || 0;
       acc.totalFiles += curr.totalFiles || 0;
       acc.incomingDuration += curr.incomingDuration || 0;
       acc.outgoingDuration += curr.outgoingDuration || 0;
@@ -506,6 +553,7 @@ const Performance = () => {
       return acc;
     }, {
       totalCalls: 0,
+              totalFee: 0,
       totalFiles: 0,
       incomingDuration: 0,
       outgoingDuration: 0,
@@ -520,6 +568,7 @@ const Performance = () => {
   const teamDateSummaryTotals = useMemo(() => {
     return teamDateSummary.reduce((acc, curr) => {
       acc.calls += curr.calls || 0;
+      acc.fee += curr.fee || 0;
       acc.files += curr.files || 0;
       acc.incomingDuration += curr.incomingDuration || 0;
       acc.outgoingDuration += curr.outgoingDuration || 0;
@@ -530,19 +579,17 @@ const Performance = () => {
       });
       return acc;
     }, {
-      calls: 0,
-      files: 0,
-      incomingDuration: 0,
-      outgoingDuration: 0,
-      longCalls: 0,
-      gapsCount: 0,
-      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
+      calls: 0, fee: 0, files: 0,
+      incomingDuration: 0, outgoingDuration: 0,
+      longCalls: 0, gapsCount: 0,
+      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0
     });
   }, [teamDateSummary]);
 
   const teamMonthSummaryTotals = useMemo(() => {
     return teamMonthSummary.reduce((acc, curr) => {
       acc.calls += curr.calls || 0;
+      acc.fee += curr.fee || 0;
       acc.files += curr.files || 0;
       acc.incomingDuration += curr.incomingDuration || 0;
       acc.outgoingDuration += curr.outgoingDuration || 0;
@@ -553,29 +600,24 @@ const Performance = () => {
       });
       return acc;
     }, {
-      calls: 0,
-      files: 0,
-      incomingDuration: 0,
-      outgoingDuration: 0,
-      longCalls: 0,
-      gapsCount: 0,
-      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, others: 0
+      calls: 0, fee: 0, files: 0,
+      incomingDuration: 0, outgoingDuration: 0,
+      longCalls: 0, gapsCount: 0,
+      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0
     });
   }, [teamMonthSummary]);
 
-  // Aggregate stats
+  // Aggregate agent stats
   const totals = agentEntries.reduce(
     (acc, curr) => {
       if (curr.is_leave) {
         acc.leaves += 1;
       } else {
         acc.calls += curr.calls || 0;
-        
-        // Sum states if files is zero
+        acc.fee += curr.fee || 0;  // fee = integer, separate from files
         const stateSum = stateColumns.reduce((s, col) => s + (curr[col.toLowerCase()] || 0), 0);
         const computedFiles = curr.files > 0 ? curr.files : stateSum;
         acc.files += computedFiles;
-        
         acc.longCalls += curr.long_calls || 0;
         acc.incomingDuration += curr.incoming_duration || 0;
         acc.outgoingDuration += curr.outgoing_duration || 0;
@@ -584,7 +626,7 @@ const Performance = () => {
       }
       return acc;
     },
-    { calls: 0, files: 0, activeDays: 0, leaves: 0, longCalls: 0, incomingDuration: 0, outgoingDuration: 0, gaps: 0 }
+    { calls: 0, fee: 0, files: 0, activeDays: 0, leaves: 0, longCalls: 0, incomingDuration: 0, outgoingDuration: 0, gaps: 0 }
   );
 
   return (
@@ -651,6 +693,7 @@ const Performance = () => {
               onChange={(e) => setFilterType(e.target.value)}
             >
               <option value="single">Single Date</option>
+              <option value="week">Weekly</option>
               <option value="range">Date Range</option>
               <option value="month">Monthly</option>
             </select>
@@ -691,6 +734,19 @@ const Performance = () => {
             </>
           )}
 
+          
+          {filterType === 'week' && (
+            <div className="input-group" style={{ margin: 0 }}>
+              <label>Week</label>
+              <input 
+                type="week" 
+                className="input-field" 
+                value={selectedWeek}
+                onChange={(e) => setSelectedWeek(e.target.value)}
+              />
+            </div>
+          )}
+
           {filterType === 'month' && (
             <div className="input-group" style={{ margin: 0 }}>
               <label>Month</label>
@@ -711,8 +767,8 @@ const Performance = () => {
         <div>
           {selectedAgent ? (
             <>
-              {/* Performance Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+              {/* Fee Summary Card — separate from files */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Total Calls</span>
                   <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{totals.calls}</h2>
@@ -722,6 +778,11 @@ const Performance = () => {
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Total Files</span>
                   <h2 style={{ fontSize: '2rem', marginTop: '0.5rem' }}>{totals.files}</h2>
                   <ArrowUpRight size={16} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: 'var(--primary)' }} />
+                </div>
+                <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative', border: '1px solid rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.05)' }}>
+                  <span style={{ color: '#4ade80', fontSize: '0.875rem', fontWeight: '600' }}>Total Fees 💰</span>
+                  <h2 style={{ fontSize: '2rem', marginTop: '0.5rem', color: '#4ade80' }}>{totals.fee}</h2>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Separate from files</span>
                 </div>
                 <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Previous Month Entry</span>
@@ -753,7 +814,6 @@ const Performance = () => {
                 </div>
               </div>
 
-              {/* Performance Log with Inline Editing */}
               <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>Performance Log</h2>
               <div className="glass-panel data-table-container">
                 <table className="data-table">
@@ -763,6 +823,8 @@ const Performance = () => {
                       <th>Status</th>
                       <th>Calls</th>
                       <th>Files</th>
+                      <th style={{ color: '#4ade80' }}>Fee 💰</th>
+                      <th style={{ color: '#4ade80' }}>Fee States</th>
                       <th>First Call</th>
                       <th>Last Call</th>
                       <th>Gaps</th>
@@ -844,6 +906,37 @@ const Performance = () => {
                                     ? entry.files 
                                     : stateColumns.reduce((s, col) => s + (entry[col.toLowerCase()] || 0), 0)
                                 )}
+                              </td>
+                              {/* Fee column — integer count, separate from files */}
+                              <td style={{ color: '#4ade80', fontWeight: '600' }}>
+                                {isEditing ? (
+                                  <input 
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    className="input-field"
+                                    value={editingValues.fee}
+                                    onChange={(e) => handleEditChange('fee', parseInt(e.target.value) || 0)}
+                                    disabled={editingValues.is_leave}
+                                    style={{ width: '60px', padding: '0.25rem', textAlign: 'center' }}
+                                  />
+                                ) : (
+                                  entry.fee > 0 ? entry.fee : '-'
+                                )}
+                              </td>
+                              {/* Fee state breakdown from fee_states JSONB */}
+                              <td style={{ fontSize: '0.8rem' }}>
+                                {entry.fee_states && Object.keys(entry.fee_states).length > 0 ? (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.2rem' }}>
+                                    {Object.entries(entry.fee_states).map(([st, cnt]) =>
+                                      cnt > 0 ? (
+                                        <span key={st} style={{ padding: '0.1rem 0.35rem', backgroundColor: 'rgba(34,197,94,0.15)', color: '#4ade80', borderRadius: '4px', fontSize: '0.75rem' }}>
+                                          {st.toUpperCase()}:{cnt}
+                                        </span>
+                                      ) : null
+                                    )}
+                                  </div>
+                                ) : '-'}
                               </td>
                               {/* Audit metrics columns */}
                               <td style={{ color: 'var(--secondary)', fontWeight: '500' }}>{entry.first_call_time || '-'}</td>
@@ -991,6 +1084,7 @@ const Performance = () => {
                   <tr>
                     <th>Team (Agency)</th>
                     <th>Total Calls</th>
+                    <th>Total Fee (₹)</th>
                     <th>Total Files</th>
                     <th>Outgoing Duration</th>
                     <th>Long Calls</th>
@@ -1077,6 +1171,7 @@ const Performance = () => {
                     <th>Date</th>
                     <th>Team (Agency)</th>
                     <th>Calls</th>
+                      <th>Fee (₹)</th>
                     <th>Files</th>
                     <th>Outgoing Duration</th>
                     <th>Long Calls</th>
@@ -1157,6 +1252,7 @@ const Performance = () => {
                     <th>Month</th>
                     <th>Team (Agency)</th>
                     <th>Calls</th>
+                      <th>Fee (₹)</th>
                     <th>Files</th>
                     <th>Outgoing Duration</th>
                     <th>Long Calls</th>
