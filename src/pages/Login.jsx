@@ -270,7 +270,7 @@ const Login = () => {
                 inputMode="numeric"
                 maxLength={6}
                 className="input-field" 
-                placeholder="Default: 3000"
+                placeholder=""
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '1.2rem', padding: '0.75rem', borderColor: '#eab308' }}

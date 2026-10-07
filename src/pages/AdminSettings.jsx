@@ -373,7 +373,7 @@ const AdminSettings = () => {
                     <input 
                       type="text" 
                       className="input-field" 
-                      placeholder="Default: 3000" 
+                      placeholder="" 
                       value={newLeaderPin}
                       onChange={(e) => setNewLeaderPin(e.target.value)}
                       style={{ borderColor: '#eab308' }}
@@ -437,7 +437,7 @@ const AdminSettings = () => {
                               value={editingLeaderPin} 
                               onChange={(e) => setEditingLeaderPin(e.target.value)} 
                               style={{ margin: 0, padding: '0.25rem 0.5rem', fontSize: '0.85rem', borderColor: '#eab308' }} 
-                              placeholder="Leader PIN (Default: 3000)"
+                              placeholder="Leader PIN ()"
                             />
                           )}
                           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
