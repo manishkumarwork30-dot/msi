@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { User, Users, ArrowUpRight, RefreshCw } from 'lucide-react';
+import { User, Users, ArrowUpRight, RefreshCw, Coins, DollarSign } from 'lucide-react';
 
 const stateColumns = ['PB', 'HR', 'JK', 'HP', 'MP', 'RJ', 'UP', 'BR', 'MH', 'OTHERS'];
 
@@ -105,6 +105,14 @@ const Performance = () => {
   const [selectedAgentMonthly, setSelectedAgentMonthly] = useState({ prev: 0, curr: 0 });
   const [expandedRows, setExpandedRows] = useState({});
   const [expandedTeamRows, setExpandedTeamRows] = useState({});
+
+  // Fees Performance States (100% separate from files data)
+  const [feeViewType, setFeeViewType] = useState('team'); // 'team' | 'agent' | 'date'
+  const [feeSummary, setFeeSummary] = useState([]);
+  const [feeAgentSummary, setFeeAgentSummary] = useState([]);
+  const [feeDateSummary, setFeeDateSummary] = useState([]);
+  const [expandedFeeRows, setExpandedFeeRows] = useState({});
+  const [feeTeamFilter, setFeeTeamFilter] = useState('');
 
 
   // Inline editing functions
@@ -535,6 +543,168 @@ const Performance = () => {
     fetchTeamSummary();
   }, [activeTab, filterType, selectedDate, startDate, endDate, selectedMonth, triggerRefresh]);
 
+  // Fetch Fee Performance data (100% independent from files/calls)
+  useEffect(() => {
+    if (activeTab !== 'fee') return;
+
+    const fetchFeePerformance = async () => {
+      setLoading(true);
+      try {
+        let start, end;
+        if (filterType === 'single') {
+          start = selectedDate;
+          end = selectedDate;
+        } else if (filterType === 'range') {
+          start = startDate;
+          end = endDate;
+        } else if (filterType === 'week') {
+          const wRange = getWeekRange(selectedWeek);
+          start = wRange.start;
+          end = wRange.end;
+        } else if (filterType === 'month') {
+          const year = parseInt(selectedMonth.split('-')[0], 10);
+          const month = parseInt(selectedMonth.split('-')[1], 10);
+          start = `${selectedMonth}-01`;
+          const lastDayNum = String(new Date(year, month, 0).getDate()).padStart(2, '0');
+          end = `${selectedMonth}-${lastDayNum}`;
+        }
+
+        // Query daily_entries focusing ONLY on fee and fee_states JSONB
+        const { data, error } = await supabase
+          .from('daily_entries')
+          .select('id, agent_id, date, fee, fee_states, agents(id, name, teams(id, name))')
+          .gte('date', start)
+          .lte('date', end);
+
+        if (error) throw error;
+
+        const teamMap = {};
+        const agentMap = {};
+        const dateList = [];
+
+        (data || []).forEach(entry => {
+          const teamName = entry.agents?.teams?.name || 'No Team';
+          const agentName = entry.agents?.name || 'Unknown Agent';
+          const agentId = entry.agent_id || entry.id;
+          const entryDate = entry.date;
+          const rawFee = Number(entry.fee) || 0;
+          const feeStates = (typeof entry.fee_states === 'object' && entry.fee_states !== null) ? entry.fee_states : {};
+
+          // Extract state fees ONLY from fee_states JSONB (distinct from files)
+          const statesFee = {};
+          let stateFeeSum = 0;
+          stateColumns.forEach(st => {
+            const key = st.toLowerCase();
+            const count = parseInt(feeStates[key]) || 0;
+            statesFee[key] = count;
+            stateFeeSum += count;
+          });
+
+          // Fee count: use rawFee if > 0, else sum of state fees
+          const effectiveFee = rawFee > 0 ? rawFee : stateFeeSum;
+
+          // 1. Team map
+          if (!teamMap[teamName]) {
+            teamMap[teamName] = {
+              name: teamName,
+              totalFee: 0,
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0,
+              agents: {}
+            };
+          }
+          teamMap[teamName].totalFee += effectiveFee;
+          stateColumns.forEach(st => {
+            teamMap[teamName][st.toLowerCase()] += statesFee[st.toLowerCase()];
+          });
+
+          if (!teamMap[teamName].agents[agentName]) {
+            teamMap[teamName].agents[agentName] = {
+              name: agentName,
+              totalFee: 0,
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0
+            };
+          }
+          teamMap[teamName].agents[agentName].totalFee += effectiveFee;
+          stateColumns.forEach(st => {
+            teamMap[teamName].agents[agentName][st.toLowerCase()] += statesFee[st.toLowerCase()];
+          });
+
+          // 2. Agent map
+          if (!agentMap[agentId]) {
+            agentMap[agentId] = {
+              agentId,
+              agentName,
+              teamName,
+              totalFee: 0,
+              pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0,
+              dates: []
+            };
+          }
+          agentMap[agentId].totalFee += effectiveFee;
+          stateColumns.forEach(st => {
+            agentMap[agentId][st.toLowerCase()] += statesFee[st.toLowerCase()];
+          });
+
+          if (effectiveFee > 0 || stateFeeSum > 0) {
+            agentMap[agentId].dates.push({
+              date: entryDate,
+              totalFee: effectiveFee,
+              ...statesFee
+            });
+
+            dateList.push({
+              id: entry.id,
+              date: entryDate,
+              teamName,
+              agentName,
+              totalFee: effectiveFee,
+              ...statesFee
+            });
+          }
+        });
+
+        const sortedTeams = Object.values(teamMap).sort((a, b) => b.totalFee - a.totalFee || a.name.localeCompare(b.name));
+        const sortedAgents = Object.values(agentMap).sort((a, b) => b.totalFee - a.totalFee || a.agentName.localeCompare(b.agentName));
+        const sortedDateList = dateList.sort((a, b) => b.date.localeCompare(a.date) || b.totalFee - a.totalFee);
+
+        setFeeSummary(sortedTeams);
+        setFeeAgentSummary(sortedAgents);
+        setFeeDateSummary(sortedDateList);
+      } catch (err) {
+        console.error('Error fetching fee performance:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeePerformance();
+  }, [activeTab, filterType, selectedDate, startDate, endDate, selectedMonth, selectedWeek, triggerRefresh]);
+
+  // Fees Performance Totals
+  const feeTotals = useMemo(() => {
+    return feeSummary.reduce((acc, curr) => {
+      acc.totalFee += curr.totalFee || 0;
+      stateColumns.forEach(st => {
+        acc[st.toLowerCase()] += curr[st.toLowerCase()] || 0;
+      });
+      return acc;
+    }, {
+      totalFee: 0,
+      pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0
+    });
+  }, [feeSummary]);
+
+  const topFeeState = useMemo(() => {
+    let top = { state: 'None', count: 0 };
+    stateColumns.forEach(st => {
+      const val = feeTotals[st.toLowerCase()] || 0;
+      if (val > top.count) {
+        top = { state: st, count: val };
+      }
+    });
+    return top;
+  }, [feeTotals]);
+
   // Team performance totals
   const teamSummaryTotals = useMemo(() => {
     return teamSummary.reduce((acc, curr) => {
@@ -639,7 +809,7 @@ const Performance = () => {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
         <button 
           className={`btn ${activeTab === 'agent' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('agent')}
@@ -651,6 +821,13 @@ const Performance = () => {
           onClick={() => setActiveTab('team')}
         >
           <Users size={16} style={{ marginRight: '0.5rem' }} /> Team Performance
+        </button>
+        <button 
+          className={`btn ${activeTab === 'fee' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('fee')}
+          style={activeTab === 'fee' ? { backgroundColor: '#16a34a', borderColor: '#16a34a', color: '#fff' } : {}}
+        >
+          <Coins size={16} style={{ marginRight: '0.5rem', color: activeTab === 'fee' ? '#fff' : '#4ade80' }} /> Fees Performance
         </button>
       </div>
 
@@ -680,6 +857,22 @@ const Performance = () => {
                 <option value="">-- Choose Agent --</option>
                 {agents.map(ag => (
                   <option key={ag.id} value={ag.id}>{ag.name} ({ag.teams?.name || 'No Team'})</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {activeTab === 'fee' && (
+            <div className="input-group" style={{ margin: 0, minWidth: '200px' }}>
+              <label>Filter By Agency / Team</label>
+              <select 
+                className="input-field" 
+                value={feeTeamFilter} 
+                onChange={(e) => setFeeTeamFilter(e.target.value)}
+              >
+                <option value="">-- All Teams --</option>
+                {[...new Set(feeSummary.map(t => t.name))].map(tName => (
+                  <option key={tName} value={tName}>{tName}</option>
                 ))}
               </select>
             </div>
@@ -1084,7 +1277,6 @@ const Performance = () => {
                   <tr>
                     <th>Team (Agency)</th>
                     <th>Total Calls</th>
-                    <th>Total Fee (₹)</th>
                     <th>Total Files</th>
                     <th>Outgoing Duration</th>
                     <th>Long Calls</th>
@@ -1171,7 +1363,6 @@ const Performance = () => {
                     <th>Date</th>
                     <th>Team (Agency)</th>
                     <th>Calls</th>
-                      <th>Fee (₹)</th>
                     <th>Files</th>
                     <th>Outgoing Duration</th>
                     <th>Long Calls</th>
@@ -1252,7 +1443,6 @@ const Performance = () => {
                     <th>Month</th>
                     <th>Team (Agency)</th>
                     <th>Calls</th>
-                      <th>Fee (₹)</th>
                     <th>Files</th>
                     <th>Outgoing Duration</th>
                     <th>Long Calls</th>
@@ -1325,6 +1515,374 @@ const Performance = () => {
                 </tfoot>
               </table>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Fees Performance Tab View (100% independent from files/calls) */}
+      {!loading && activeTab === 'fee' && (
+        <div>
+          {/* Top KPI Cards for Fees */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+            <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative', border: '1px solid rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.05)' }}>
+              <span style={{ color: '#4ade80', fontSize: '0.875rem', fontWeight: '600' }}>Total Fees 💰</span>
+              <h2 style={{ fontSize: '2.2rem', marginTop: '0.5rem', color: '#4ade80' }}>
+                {feeTotals.totalFee.toLocaleString()}
+              </h2>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>100% separate from files</span>
+              <Coins size={22} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: '#4ade80', opacity: 0.8 }} />
+            </div>
+
+            <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Top State (Fees) 🏆</span>
+              <h2 style={{ fontSize: '1.8rem', marginTop: '0.5rem', color: '#38bdf8' }}>
+                {topFeeState.count > 0 ? `${topFeeState.state}: ${topFeeState.count}` : 'None'}
+              </h2>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Highest state collection</span>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Active Agencies</span>
+              <h2 style={{ fontSize: '2rem', marginTop: '0.5rem', color: 'var(--primary)' }}>
+                {feeSummary.filter(t => t.totalFee > 0).length} / {feeSummary.length}
+              </h2>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Teams with fee records</span>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Agents with Fees</span>
+              <h2 style={{ fontSize: '2rem', marginTop: '0.5rem', color: '#a855f7' }}>
+                {feeAgentSummary.filter(a => a.totalFee > 0).length}
+              </h2>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Contributing agents</span>
+            </div>
+          </div>
+
+          {/* State-wise Quick Fee Breakdown Bar */}
+          <div className="glass-panel" style={{ padding: '1.25rem 1.5rem', marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#4ade80' }}></span>
+                State-wise Fee Summary ({stateColumns.length} States from fee_states)
+              </span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Values from Leader Fee Entry</span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+              {stateColumns.map(st => {
+                const count = feeTotals[st.toLowerCase()] || 0;
+                return (
+                  <div 
+                    key={st}
+                    style={{
+                      padding: '0.4rem 0.8rem',
+                      borderRadius: '8px',
+                      backgroundColor: count > 0 ? 'rgba(34, 197, 94, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                      border: count > 0 ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                  >
+                    <span style={{ fontSize: '0.8rem', fontWeight: '600', color: count > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                      {st}:
+                    </span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: count > 0 ? '#4ade80' : 'var(--text-muted)' }}>
+                      {count}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Sub-tabs / Toggles for Fees Performance View Type */}
+          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', flexWrap: 'wrap' }}>
+            <button 
+              className={`btn ${feeViewType === 'team' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setFeeViewType('team')}
+              style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
+            >
+              Agency (Team) Summary
+            </button>
+            <button 
+              className={`btn ${feeViewType === 'agent' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setFeeViewType('agent')}
+              style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
+            >
+              Agent Breakdown
+            </button>
+            <button 
+              className={`btn ${feeViewType === 'date' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setFeeViewType('date')}
+              style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
+            >
+              Daily Fee Log
+            </button>
+          </div>
+
+          {/* Tables for Fees */}
+          <div className="glass-panel data-table-container">
+            {/* 1. Team View */}
+            {feeViewType === 'team' && (() => {
+              const displayedTeams = feeTeamFilter 
+                ? feeSummary.filter(t => t.name === feeTeamFilter) 
+                : feeSummary;
+
+              const displayedTotals = displayedTeams.reduce((acc, curr) => {
+                acc.totalFee += curr.totalFee || 0;
+                stateColumns.forEach(st => {
+                  acc[st.toLowerCase()] += curr[st.toLowerCase()] || 0;
+                });
+                return acc;
+              }, { totalFee: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0 });
+
+              return (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Team (Agency)</th>
+                      <th style={{ color: '#4ade80', fontWeight: 'bold' }}>Total Fee 💰</th>
+                      {stateColumns.map(st => (
+                        <th key={st} style={{ color: 'var(--text-muted)' }}>{st} (Fee)</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedTeams.length === 0 ? (
+                      <tr>
+                        <td colSpan={stateColumns.length + 2} style={{ textAlign: 'center', padding: '2rem' }}>
+                          No fee records found for the selected timeframe.
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedTeams.map(team => {
+                        const rowKey = `fee_team_${team.name}`;
+                        const isExpanded = !!expandedFeeRows[rowKey];
+                        return (
+                          <React.Fragment key={team.name}>
+                            <tr style={{ cursor: 'pointer' }} onClick={() => setExpandedFeeRows(prev => ({ ...prev, [rowKey]: !prev[rowKey] }))}>
+                              <td style={{ fontWeight: 'bold', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ transform: isExpanded ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', fontSize: '0.8rem' }}>▶</span>
+                                {team.name}
+                              </td>
+                              <td style={{ color: '#4ade80', fontWeight: 'bold', fontSize: '1.05rem' }}>
+                                {team.totalFee.toLocaleString()}
+                              </td>
+                              {stateColumns.map(st => {
+                                const val = team[st.toLowerCase()] || 0;
+                                return (
+                                  <td key={st} style={{ color: val > 0 ? '#4ade80' : 'var(--text-muted)', fontWeight: val > 0 ? '600' : 'normal' }}>
+                                    {val > 0 ? val.toLocaleString() : '-'}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                            {isExpanded && Object.values(team.agents || {}).map(agent => (
+                              <tr key={agent.name} style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                                <td style={{ paddingLeft: '2.5rem', color: 'var(--text-muted)' }}>— {agent.name}</td>
+                                <td style={{ color: '#4ade80', fontWeight: '500' }}>
+                                  {agent.totalFee.toLocaleString()}
+                                </td>
+                                {stateColumns.map(st => {
+                                  const val = agent[st.toLowerCase()] || 0;
+                                  return (
+                                    <td key={st} style={{ color: val > 0 ? '#4ade80' : 'var(--text-muted)', opacity: val > 0 ? 1 : 0.5 }}>
+                                      {val > 0 ? val.toLocaleString() : '-'}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ fontWeight: 'bold', borderTop: '2px solid var(--border-color)', backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
+                      <td>TOTAL (ALL TEAMS)</td>
+                      <td style={{ color: '#4ade80', fontSize: '1.1rem' }}>
+                        {displayedTotals.totalFee.toLocaleString()}
+                      </td>
+                      {stateColumns.map(st => (
+                        <td key={st} style={{ color: displayedTotals[st.toLowerCase()] > 0 ? '#4ade80' : 'inherit' }}>
+                          {displayedTotals[st.toLowerCase()].toLocaleString()}
+                        </td>
+                      ))}
+                    </tr>
+                  </tfoot>
+                </table>
+              );
+            })()}
+
+            {/* 2. Agent View */}
+            {feeViewType === 'agent' && (() => {
+              const displayedAgents = feeTeamFilter 
+                ? feeAgentSummary.filter(a => a.teamName === feeTeamFilter) 
+                : feeAgentSummary;
+
+              const displayedTotals = displayedAgents.reduce((acc, curr) => {
+                acc.totalFee += curr.totalFee || 0;
+                stateColumns.forEach(st => {
+                  acc[st.toLowerCase()] += curr[st.toLowerCase()] || 0;
+                });
+                return acc;
+              }, { totalFee: 0, pb: 0, hr: 0, jk: 0, hp: 0, mp: 0, rj: 0, up: 0, br: 0, mh: 0, others: 0 });
+
+              return (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Agent Name</th>
+                      <th>Team (Agency)</th>
+                      <th style={{ color: '#4ade80', fontWeight: 'bold' }}>Total Fee 💰</th>
+                      {stateColumns.map(st => (
+                        <th key={st} style={{ color: 'var(--text-muted)' }}>{st} (Fee)</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedAgents.length === 0 ? (
+                      <tr>
+                        <td colSpan={stateColumns.length + 3} style={{ textAlign: 'center', padding: '2rem' }}>
+                          No agent fee records found for the selected timeframe.
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedAgents.map(ag => {
+                        const rowKey = `fee_ag_${ag.agentId}`;
+                        const isExpanded = !!expandedFeeRows[rowKey];
+                        const hasDates = ag.dates && ag.dates.length > 0;
+                        return (
+                          <React.Fragment key={ag.agentId}>
+                            <tr 
+                              style={{ cursor: hasDates ? 'pointer' : 'default' }}
+                              onClick={() => hasDates && setExpandedFeeRows(prev => ({ ...prev, [rowKey]: !prev[rowKey] }))}
+                            >
+                              <td style={{ fontWeight: 'bold', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                {hasDates && (
+                                  <span style={{ transform: isExpanded ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', fontSize: '0.8rem' }}>▶</span>
+                                )}
+                                {ag.agentName}
+                              </td>
+                              <td style={{ color: 'var(--primary)' }}>{ag.teamName}</td>
+                              <td style={{ color: '#4ade80', fontWeight: 'bold', fontSize: '1.05rem' }}>
+                                {ag.totalFee.toLocaleString()}
+                              </td>
+                              {stateColumns.map(st => {
+                                const val = ag[st.toLowerCase()] || 0;
+                                return (
+                                  <td key={st} style={{ color: val > 0 ? '#4ade80' : 'var(--text-muted)', fontWeight: val > 0 ? '600' : 'normal' }}>
+                                    {val > 0 ? val.toLocaleString() : '-'}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                            {isExpanded && ag.dates.map((dEntry, dIdx) => (
+                              <tr key={dIdx} style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                                <td style={{ paddingLeft: '2.5rem', color: 'var(--text-muted)' }}>— {dEntry.date}</td>
+                                <td style={{ color: 'var(--text-muted)' }}>Daily Entry</td>
+                                <td style={{ color: '#4ade80' }}>{dEntry.totalFee.toLocaleString()}</td>
+                                {stateColumns.map(st => {
+                                  const val = dEntry[st.toLowerCase()] || 0;
+                                  return (
+                                    <td key={st} style={{ color: val > 0 ? '#4ade80' : 'var(--text-muted)', opacity: val > 0 ? 1 : 0.5 }}>
+                                      {val > 0 ? val.toLocaleString() : '-'}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ fontWeight: 'bold', borderTop: '2px solid var(--border-color)', backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
+                      <td colSpan={2}>TOTAL (ALL AGENTS)</td>
+                      <td style={{ color: '#4ade80', fontSize: '1.1rem' }}>
+                        {displayedTotals.totalFee.toLocaleString()}
+                      </td>
+                      {stateColumns.map(st => (
+                        <td key={st} style={{ color: displayedTotals[st.toLowerCase()] > 0 ? '#4ade80' : 'inherit' }}>
+                          {displayedTotals[st.toLowerCase()].toLocaleString()}
+                        </td>
+                      ))}
+                    </tr>
+                  </tfoot>
+                </table>
+              );
+            })()}
+
+            {/* 3. Daily Log View */}
+            {feeViewType === 'date' && (() => {
+              const displayedLogs = feeTeamFilter 
+                ? feeDateSummary.filter(d => d.teamName === feeTeamFilter) 
+                : feeDateSummary;
+
+              const totalFeeSum = displayedLogs.reduce((s, curr) => s + (curr.totalFee || 0), 0);
+
+              return (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Agent Name</th>
+                      <th>Team (Agency)</th>
+                      <th style={{ color: '#4ade80', fontWeight: 'bold' }}>Total Fee 💰</th>
+                      {stateColumns.map(st => (
+                        <th key={st} style={{ color: 'var(--text-muted)' }}>{st} (Fee)</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={stateColumns.length + 4} style={{ textAlign: 'center', padding: '2rem' }}>
+                          No fee log entries found for the selected timeframe.
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedLogs.map((entry, idx) => (
+                        <tr key={entry.id || idx}>
+                          <td style={{ color: 'var(--text-muted)' }}>{entry.date}</td>
+                          <td style={{ fontWeight: '600' }}>{entry.agentName}</td>
+                          <td style={{ color: 'var(--primary)' }}>{entry.teamName}</td>
+                          <td style={{ color: '#4ade80', fontWeight: 'bold' }}>
+                            {entry.totalFee.toLocaleString()}
+                          </td>
+                          {stateColumns.map(st => {
+                            const val = entry[st.toLowerCase()] || 0;
+                            return (
+                              <td key={st} style={{ color: val > 0 ? '#4ade80' : 'var(--text-muted)', fontWeight: val > 0 ? '600' : 'normal' }}>
+                                {val > 0 ? val.toLocaleString() : '-'}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ fontWeight: 'bold', borderTop: '2px solid var(--border-color)', backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
+                      <td colSpan={3}>TOTAL (LOGGED ENTRIES)</td>
+                      <td style={{ color: '#4ade80', fontSize: '1.1rem' }}>
+                        {totalFeeSum.toLocaleString()}
+                      </td>
+                      {stateColumns.map(st => {
+                        const colSum = displayedLogs.reduce((s, curr) => s + (curr[st.toLowerCase()] || 0), 0);
+                        return (
+                          <td key={st} style={{ color: colSum > 0 ? '#4ade80' : 'inherit' }}>
+                            {colSum.toLocaleString()}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  </tfoot>
+                </table>
+              );
+            })()}
           </div>
         </div>
       )}
